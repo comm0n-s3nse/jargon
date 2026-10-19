@@ -167,6 +167,7 @@ class VoiceKeyboardInputMethodService : InputMethodService(), LifecycleOwner,
     var canTranscribe by mutableStateOf(false)
         private set
     var isRecording by mutableStateOf(false)
+    var micLevel by mutableStateOf(0f) // how loud the mic is right now, 0 to 1, for the level bars
         private set
     private var modelsPath: File? = null
     private var samplesPath: File? = null
@@ -597,7 +598,8 @@ class VoiceKeyboardInputMethodService : InputMethodService(), LifecycleOwner,
                 sentenceStart = null
                 replaced = null
                 val file = getTempFileForRecording()
-                recorder.startRecording(file, onError)
+                micLevel = 0f
+                recorder.startRecording(file, onError, onLevel = { micLevel = it })
                 isRecording = true
                 recordedFile = file
                 // spacing and capitalization are decided here, before any preview is composing

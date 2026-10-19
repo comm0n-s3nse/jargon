@@ -85,4 +85,5 @@
     <string name="keyboards_button">Keyboards</string>
     <string name="keyboards_description">Choose which keyboards are enabled</string>
     <string name="quick_same">Same</string>
+    <string name="undo_button">Undo</string>
 </resources>

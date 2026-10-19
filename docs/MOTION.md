@@ -4,8 +4,8 @@ Decided 2026-10-18 from the live mockups (claude.ai/artifact/JGGsJ4ieK3GLJWJUJUh
 **Material** profile below is the default and ships first. **Charge** is a second profile
 for an Appearance screen, still being designed; its notes are at the end so they are not lost.
 
-Everything is drawn inside the key's own `drawWithContent`, timed by the frame clock
-(`withFrameNanos`), as the ring already is. No new dependencies.
+Everything is drawn inside the key's own `drawWithContent` and `colors`, timed by the frame clock
+(`withFrameNanos`), as the ring already is. No new dependencies. Shipped 2026-10-18.
 
 ## Material (default)
 
@@ -19,7 +19,7 @@ Colours come from the theme: `primary` / `onPrimary` for the key and its ink,
 | Press | The ring grows from the thumb to the far corner over the 240 ms gate, 2.5 dp, in the key's ink colour (as today). |
 | Arm (ring reaches the edge) | The key fills from its container colour to the strong primary over 120 ms, the icon inverts to the on-colour, and one 1.5 dp edge pulse fades over 150 ms, timed with the vibration that already fires here. |
 | Hold | A solid filled key, steady, with a faint 1.5 dp outline that breathes between 25 % and 40 % opacity over about 1.5 s. No particles. |
-| Drag up to cancel | Unchanged: the key tints red past 10 mm, with the tick that already fires. |
+| Drag up to cancel | Past 10 mm the whole key turns red with white content (a tint over the dark fill read as purple), with the tick that already fires. |
 | Release | The fill eases back to the container colour over 160 ms while "Transcribing" shows. |
 
 ### Recording in progress (tap mode)
@@ -30,16 +30,21 @@ the on-colour, each driven by the **real microphone level** (RMS of each buffer 
 recorder reads, published as state; each bar gets its own phase so they do not move as one).
 Timer and icon unchanged.
 
-Needs: `Recorder.kt` computes RMS per `audioRecord.read` and exposes it (a `StateFlow<Float>`
-or a mutable state on the service). The recorder thread already has the buffer; this is a
-few lines and no extra allocation.
+How the level is measured (`LevelMeter` in `Recorder.kt`): RMS of each 40 ms chunk in dB,
+shown **relative to the background**: the quietest recent chunk is the floor (it drops at
+once and rises 25 dB/s), and a bar is how far above the floor the chunk is, with 25 dB as
+full height. A fixed dBFS scale did not work: the phone's gain control put a quiet room at
+half height. The first chunks after the hardware starts are digital zeros and are ignored.
+The five bars are the last 0.4 s, newest on the right, so they are a record, not a
+decoration. Verified on the OnePlus in a quiet room (bars at the floor); speech height is
+by calculation (voice runs 15 to 30 dB over room noise) and still to be seen on a phone.
 
 ### Backspace: drag left to undo
 
 | Moment | What happens |
 |---|---|
 | Drag | The backspace icon rolls left and fades out while an undo arrow rolls in from the right (28 dp travel, the same roll as enter's gear). The key tints from its container colour to `errorContainer`, icon ink to `onErrorContainer`, in step with the drag. |
-| Threshold (11 mm) | The key fills solid `error`, the icon turns white, and the tick fires. **No edge flash** on this key. |
+| Threshold (11 mm) | The key fills solid red (the same fixed red as the undo behind it, since Material's `error` is pale in a dark theme), the icon turns white, and the tick fires. **No edge flash** on this key. |
 | Release past threshold | Undo, as today. |
 | Release before threshold | Rolls back. |
 

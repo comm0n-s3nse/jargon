@@ -6,6 +6,13 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.Alignment
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material.icons.outlined.Settings
+import kotlin.math.sin
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material.icons.automirrored.outlined.Undo
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.Canvas
 import kotlin.math.abs
 import androidx.compose.material.icons.outlined.Keyboard
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -81,6 +88,11 @@ import kotlin.math.roundToInt
 
 // a press shorter than this is a tap, longer is a hold (word-delete, press-to-talk)
 private const val HOLD_GATE_MS = 240L
+// the "live" key: how fast it fills when a hold arms or a tap-recording starts, and empties after
+private const val FILL_IN_MS = 120
+private const val FILL_OUT_MS = 160
+private const val PULSE_MS = 150 // the one edge pulse at arming
+private const val ROLL_DP = 28 // how far an icon travels when one rolls out and another rolls in
 
 // Sizes that matter to a thumb are in millimeters, not dp. A phone's "display size" setting
 // rescales dp, which shrank the keyboard and pushed it against the system nav buttons.
@@ -141,6 +153,7 @@ class VoiceKeyboardView(private val service: VoiceKeyboardInputMethodService) :
                     quickLanguages = service::quickLanguages,
                     quickCurrent = service::quickLanguageCurrent,
                     onQuickPick = service::pickQuickLanguage,
+                    level = { service.micLevel },
                     modifier = Modifier
                         .weight(1f, true)
                         .padding(padding)
@@ -205,7 +218,11 @@ private fun DeleteButton(
     val interactionSource = remember { MutableInteractionSource() }
     val undoDistancePx = mmToPx(UNDO_DRAG_MM)
     val maxDragPx = mmToPx(UNDO_DRAG_MAX_MM)
+    val rollPx = with(LocalDensity.current) { ROLL_DP.dp.toPx() }
+    val haptic = LocalHapticFeedback.current
+    val scheme = MaterialTheme.colorScheme
     var dragX by remember { mutableFloatStateOf(0f) }
+    var armed by remember { mutableStateOf(false) }
     var deletes by remember { mutableIntStateOf(0) }
     LaunchedEffect(interactionSource) {
         // collectLatest cancels the hold loop when the release arrives
@@ -231,6 +248,10 @@ private fun DeleteButton(
         }
     }
     val progress = (-dragX / undoDistancePx).coerceIn(0f, 1f)
+    // the key tints toward the error colours as it goes, and turns solid once the undo is armed
+    // tints toward the theme's error colour on the way; armed is the same red as the undo behind it
+    val container = if (armed) CancelRed else lerp(scheme.primary, scheme.error, progress)
+    val content = if (armed) Color.White else lerp(scheme.onPrimary, scheme.onError, progress)
     Box(
         modifier = modifier.drawBehind {
             // what the button leaves behind: red that deepens as the undo gets closer
@@ -254,17 +275,41 @@ private fun DeleteButton(
                         onDragEnd = {
                             if (dragX <= -undoDistancePx) onUndo(deletes > 1)
                             dragX = 0f
+                            armed = false
                         },
-                        onDragCancel = { dragX = 0f },
+                        onDragCancel = {
+                            dragX = 0f
+                            armed = false
+                        },
                     ) { change, amount ->
                         change.consume()
                         dragX = (dragX + amount).coerceIn(-maxDragPx, 0f)
+                        val nowArmed = dragX <= -undoDistancePx
+                        if (nowArmed && !armed) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        armed = nowArmed
                     }
                 },
             shape = shape,
-            contentPadding = contentPadding
+            contentPadding = contentPadding,
+            colors = ButtonDefaults.buttonColors(containerColor = container, contentColor = content),
         ) {
-            Icon(Icons.AutoMirrored.Outlined.Backspace, stringResource(R.string.delete_button))
+            // the backspace rolls out to the left as the undo arrow rolls in from the right
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    Icons.AutoMirrored.Outlined.Backspace, stringResource(R.string.delete_button),
+                    modifier = Modifier.graphicsLayer {
+                        translationX = -progress * rollPx
+                        alpha = 1f - progress
+                    }
+                )
+                Icon(
+                    Icons.AutoMirrored.Outlined.Undo, stringResource(R.string.undo_button),
+                    modifier = Modifier.graphicsLayer {
+                        translationX = (1f - progress) * rollPx
+                        alpha = progress
+                    }
+                )
+            }
         }
     }
 }
@@ -361,6 +406,32 @@ private fun EnterButton(
     }
 }
 
+// Five bars showing the last 0.4 s of microphone level, newest on the right, so the key
+// shows it is hearing you. Real levels, not decoration.
+@Composable
+private fun LevelBars(level: () -> Float, modifier: Modifier) {
+    val history = remember { mutableStateListOf(0f, 0f, 0f, 0f, 0f) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(80)
+            history.removeAt(0)
+            history.add(level())
+        }
+    }
+    val color = LocalContentColor.current
+    Canvas(modifier.width(41.dp).height(28.dp)) {
+        val w = 5.dp.toPx()
+        val pitch = 9.dp.toPx()
+        history.forEachIndexed { i, v ->
+            val h = (6.dp + 22.dp * v).toPx()
+            drawRoundRect(
+                color, topLeft = Offset(i * pitch, (size.height - h) / 2),
+                size = Size(w, h), cornerRadius = CornerRadius(w / 2)
+            )
+        }
+    }
+}
+
 // Tap: start now, tap again to stop. Hold past the gate: stop and transcribe on release.
 // Hold and drag up about a centimeter: release throws the recording away.
 // While held, a ring grows from the thumb out to the button's edges; when it gets there the
@@ -370,7 +441,7 @@ private fun RecordButton(
     enabled: Boolean, isRecording: Boolean, status: String?, onClick: () -> Unit,
     onCancel: () -> Unit, onHoldChange: (Boolean) -> Unit,
     quickLanguages: () -> List<Pair<String, String>>, quickCurrent: () -> String,
-    onQuickPick: (String) -> Unit, modifier: Modifier, shape: Shape
+    onQuickPick: (String) -> Unit, level: () -> Float, modifier: Modifier, shape: Shape
 ) {
     // handle showing Record on the first render and not Transcribing...
     var firstRender by remember { mutableStateOf(true) }
@@ -391,11 +462,33 @@ private fun RecordButton(
     val enabledNow by rememberUpdatedState(enabled)
     val cancelDistancePx = mmToPx(CANCEL_DRAG_MM)
     val languageDistancePx = mmToPx(LANGUAGE_DRAG_MM)
-    val ringColor = MaterialTheme.colorScheme.onPrimary
+    val scheme = MaterialTheme.colorScheme
 
     var touch by remember { mutableStateOf<Offset?>(null) }
     var holdMode by remember { mutableStateOf(false) }
     var cancelArmed by remember { mutableStateOf(false) }
+    // true from a starting press until the hold arms or the finger lifts: the key fills only after
+    var charging by remember { mutableStateOf(false) }
+    val fill = remember { Animatable(0f) } // 0: resting key, 1: the filled live key
+    val pulse = remember { Animatable(0f) } // the edge pulse at arming, 1 fading to 0
+    var breath by remember { mutableFloatStateOf(0f) } // the outline's slow breathing while held
+    val live = isRecording && !charging
+    LaunchedEffect(live) {
+        fill.animateTo(if (live) 1f else 0f, tween(if (live) FILL_IN_MS else FILL_OUT_MS))
+    }
+    LaunchedEffect(holdMode) {
+        if (!holdMode) return@LaunchedEffect
+        launch { pulse.snapTo(1f); pulse.animateTo(0f, tween(PULSE_MS)) }
+        val start = withFrameNanos { it }
+        while (true) {
+            val t = (withFrameNanos { it } - start) / 1_000_000f
+            breath = 0.25f + 0.15f * sin(t / 240f)
+        }
+    }
+    // the colours follow the theme: the resting key is primary, the live key its container colour
+    val container = if (cancelArmed) CancelRed else lerp(scheme.primary, scheme.primaryContainer, fill.value)
+    val content = if (cancelArmed) Color.White else lerp(scheme.onPrimary, scheme.onPrimaryContainer, fill.value)
+    val ringColor = scheme.onPrimary
     // the quick language list, drawn inside the button while a left slide is in progress
     var menu by remember { mutableStateOf<List<Pair<String, String>>?>(null) }
     var menuCurrent by remember { mutableStateOf("") }
@@ -411,8 +504,7 @@ private fun RecordButton(
             .drawWithContent {
                 drawContent()
                 val p = touch ?: return@drawWithContent
-                val color = if (cancelArmed) CancelRed else ringColor
-                if (cancelArmed) drawRect(CancelRed.copy(alpha = 0.35f))
+                val color = if (cancelArmed) Color.White else ringColor
                 if (!holdMode) {
                     val reach = hypot(max(p.x, size.width - p.x), max(p.y, size.height - p.y))
                     drawCircle(
@@ -420,12 +512,13 @@ private fun RecordButton(
                         style = Stroke(width = 2.5.dp.toPx())
                     )
                 } else {
-                    // hollow thick outline, fading off toward the middle
+                    // held: the key is filled (see colors); one pulse at the edge, then a faint breathing outline
                     val corner = CornerRadius(8.dp.toPx())
-                    for ((width, alpha) in listOf(14f to 0.2f, 10f to 0.35f, 6f to 0.95f)) {
+                    val outline = content
+                    for ((width, alpha) in listOf(3f to pulse.value, 1.5f to breath)) {
                         val w = width.dp.toPx()
                         drawRoundRect(
-                            color.copy(alpha = alpha), cornerRadius = corner,
+                            outline.copy(alpha = alpha), cornerRadius = corner,
                             topLeft = Offset(w / 2, w / 2),
                             size = Size(size.width - w, size.height - w),
                             style = Stroke(width = w)
@@ -447,6 +540,7 @@ private fun RecordButton(
                     touch = down.position
                     holdMode = false
                     cancelArmed = false
+                    charging = startedOnPress
                     val grow = uiScope.launch {
                         // timed by the frame clock itself: animateTo follows the system "animator duration
                         // scale", and with animations switched off the ring never showed
@@ -458,6 +552,7 @@ private fun RecordButton(
                             if (t >= 1f) break
                         }
                         holdMode = true
+                        charging = false
                         // the ring has reached the edges: hold mode starts now
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                     }
@@ -518,11 +613,13 @@ private fun RecordButton(
                     }
                     touch = null
                     holdMode = false
+                    charging = false
                     cancelArmed = false
                     onHoldChange(false)
                 }
             },
-        shape = shape
+        shape = shape,
+        colors = ButtonDefaults.buttonColors(containerColor = container, contentColor = content),
     ) {
         val items = menu
         if (items != null) {
@@ -559,6 +656,7 @@ private fun RecordButton(
         } else if (isRecording) {
             firstRender = false
             Icon(Icons.Outlined.Check, stringResource(R.string.stop_recording))
+            LevelBars(level, Modifier.padding(start = 12.dp, end = 4.dp))
             Text(
                 " %d".format(seconds / 60) + ":%02d".format(
                     seconds % 60
