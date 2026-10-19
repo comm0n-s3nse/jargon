@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.NavigateNext
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -121,8 +122,35 @@ fun AboutScreen(onBack: () -> Unit) {
                     )
                 }
             }
+            item { People() }
             items(CREDITS) { credit -> CreditItem(credit) }
         }
+    }
+}
+
+// The people behind the app, in the order the work happened.
+@Composable
+private fun People() {
+    val uriHandler = LocalUriHandler.current
+    Column {
+        ListItem(
+            headlineContent = { Text(stringResource(R.string.about_original)) },
+            supportingContent = { Text("Kai (kaisoapbox)") },
+            modifier = Modifier.clickable { uriHandler.openUri("https://kaisoapbox.com") }
+        )
+        ListItem(
+            headlineContent = { Text(stringResource(R.string.support_text)) },
+            trailingContent = { Icon(Icons.AutoMirrored.Outlined.NavigateNext, null) },
+            modifier = Modifier.clickable { uriHandler.openUri("https://kaisoapbox.com") }
+        )
+        ListItem(
+            headlineContent = { Text(stringResource(R.string.about_extended)) },
+            supportingContent = { Text("pswel1") },
+        )
+        ListItem(
+            headlineContent = { Text(stringResource(R.string.about_enhanced)) },
+            supportingContent = { Text("Claude (Anthropic)") },
+        )
     }
 }
 

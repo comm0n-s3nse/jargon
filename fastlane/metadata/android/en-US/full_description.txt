@@ -1,4 +1,4 @@
-A voice typing keyboard that recognizes your speech <b>on your phone</b>. It asks for no network permission, so nothing you say is uploaded anywhere. It is a fork of Kaiboard by Kai, built on whisper.cpp.
+A voice typing keyboard that recognizes your speech <b>on your phone</b>: what you say is never uploaded. The only thing it uses the internet for is downloading a speech model, when you tap Download. It is a fork of Kaiboard by Kai, built on whisper.cpp.
 
 It is a dictation strip, not a full keyboard: keep your normal keyboard for typing and switch to this one when you want to talk. It comes with the Whisper tiny.en model for English.
 
@@ -14,7 +14,7 @@ It is a dictation strip, not a full keyboard: keep your normal keyboard for typi
 • Enter sends, searches or adds a new line, whichever the field expects. Pull it up to open settings.
 
 <b>Models and languages</b>
-• Add other Whisper models (the multilingual ones understand many languages, including with auto-detect) or Parakeet models in .gguf format, from the settings screen. Only one is kept in memory at a time.
+• Download a recommended model from the settings screen, or add your own: other Whisper models (the multilingual ones understand many languages, and can translate) or Parakeet models in .gguf format. Only one is kept in memory at a time.
 • The keyboard times itself once on your phone and picks the fastest thread count, which is often fewer than all of your cores.
 
 <b>Credits</b>

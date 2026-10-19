@@ -65,6 +65,13 @@ it can sit next to the Play or F-Droid app.
   threads run 5 to 50 times slower than 4 on one phone, so the tuner counts only cores near the
   fastest one's speed, treats anything within 10% of the best as a tie (fewest threads wins),
   and, if a tune is ever interrupted, uses a safe default instead of retrying.
+- **Recommended models you can download.** Settings lists four, each with a plain name, its memory
+  use and what it is good for: Whisper Tiny (built in), Fluid Speech Mini, Whisper Small, and
+  Canary 1B (shown as coming soon: it needs an engine the app does not have yet). Tapping Download
+  shows a screen with the size, memory use, source and the credit its license asks for. The
+  download runs in Android's download manager and is checked against a SHA-256 pinned in the app
+  (`models/Catalog.kt`) before it is used. This is the app's only use of the network, adds the
+  `INTERNET` permission, and happens only after that tap.
 - **About and licenses screen** (Settings): credits for Kaiboard, whisper.cpp, Whisper, parakeet.cpp,
   ggml and the Android libraries, each with its license text, as BSD-3 and MIT require.
 

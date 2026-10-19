@@ -32,6 +32,10 @@ checklist for getting it to other people, with what has and has not been checked
 
 ## What has and has not been checked for F-Droid
 
+- The app now has the `INTERNET` permission, used only to download a speech model after the person
+  taps Download on a screen naming the source. F-Droid reviewers may ask about it, and about
+  downloading from huggingface.co; the answer is that the models are optional, checksummed, and
+  never needed to run the built-in one.
 - Checked: the recipe lints clean with `fdroid lint` (fdroidserver 2.4.5) against F-Droid's real
   category list. The store text is within its length limits. The app asks only for the microphone
   permission and uses no Google services.

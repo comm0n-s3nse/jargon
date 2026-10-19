@@ -184,6 +184,36 @@ class ModelStore(private val context: Context) {
             }
         }
 
+    /**
+     * Saves a model that arrived some other way (a download) into the model folder, checking its
+     * SHA-256 against [sha256] as it is written. A file that does not match is deleted.
+     */
+    suspend fun installVerified(
+        input: java.io.InputStream, fileName: String, sha256: String, totalBytes: Long,
+        onProgress: (copied: Long, total: Long) -> Unit,
+    ): ModelEntry = withContext(Dispatchers.IO) {
+        if (totalBytes > 0 && dir.usableSpace < totalBytes + 50L * 1024 * 1024) {
+            throw ModelImportException("Not enough free storage for that model.")
+        }
+        val part = File(dir, "$fileName.part")
+        try {
+            val actual = part.outputStream().use { out ->
+                copyWithSha256(input, out) { copied -> onProgress(copied, totalBytes) }
+            }
+            if (!actual.equals(sha256, ignoreCase = true)) {
+                throw ModelImportException(
+                    "The download did not match the checksum this app expects, so it was thrown away."
+                )
+            }
+            val target = File(dir, fileName)
+            target.delete()
+            if (!part.renameTo(target)) throw ModelImportException("Couldn't save the model.")
+            ModelEntry("file:$fileName", fileName, target.length(), builtIn = false)
+        } finally {
+            part.delete()
+        }
+    }
+
     private fun assetSize(name: String): Long = try {
         context.assets.open("models/$name").use { it.available().toLong() }
     } catch (e: Exception) {

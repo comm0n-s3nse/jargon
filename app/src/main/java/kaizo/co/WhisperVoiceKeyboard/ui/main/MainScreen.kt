@@ -122,8 +122,47 @@ private fun MainScreen(
             item { SectionHeader(stringResource(R.string.setup_header)) }
             item { InputMethodButton() }
             item { PermissionButton() }
-            item { MoreButton() }
             item { AboutButton(onAboutTapped) }
+            item { ModelSettings() }
+            item { SectionHeader(stringResource(R.string.behavior_header)) }
+            item {
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.pause_media_option)) },
+                    leadingContent = { Icon(Icons.Outlined.Pause, null) },
+                    supportingContent = {
+                        Text(stringResource(R.string.pause_media_description))
+                    },
+                    trailingContent = {
+                        Switch(checked = pauseMedia, onCheckedChange = {
+                            pauseMedia = it
+                            with(sharedPref.edit()) {
+                                putBoolean(pauseMediaStr, it)
+                                apply()
+                            }
+                        })
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+            item {
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.casual_option)) },
+                    leadingContent = { Icon(Icons.Outlined.Mood, null) },
+                    supportingContent = {
+                        Text(stringResource(R.string.casual_description))
+                    },
+                    trailingContent = {
+                        Switch(checked = lowercase, onCheckedChange = {
+                            lowercase = it
+                            with(sharedPref.edit()) {
+                                putBoolean(casualMode, it)
+                                apply()
+                            }
+                        })
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
             item { SectionHeader(stringResource(R.string.advanced_header), bp = 4.dp) }
             item {
                 ListItem(
@@ -192,46 +231,6 @@ private fun MainScreen(
                         .padding(0.dp),
                 )
             }
-            item { ModelSettings() }
-            item { SectionHeader(stringResource(R.string.behavior_header)) }
-            item {
-                ListItem(
-                    headlineContent = { Text(stringResource(R.string.pause_media_option)) },
-                    leadingContent = { Icon(Icons.Outlined.Pause, null) },
-                    supportingContent = {
-                        Text(stringResource(R.string.pause_media_description))
-                    },
-                    trailingContent = {
-                        Switch(checked = pauseMedia, onCheckedChange = {
-                            pauseMedia = it
-                            with(sharedPref.edit()) {
-                                putBoolean(pauseMediaStr, it)
-                                apply()
-                            }
-                        })
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-            item {
-                ListItem(
-                    headlineContent = { Text(stringResource(R.string.casual_option)) },
-                    leadingContent = { Icon(Icons.Outlined.Mood, null) },
-                    supportingContent = {
-                        Text(stringResource(R.string.casual_description))
-                    },
-                    trailingContent = {
-                        Switch(checked = lowercase, onCheckedChange = {
-                            lowercase = it
-                            with(sharedPref.edit()) {
-                                putBoolean(casualMode, it)
-                                apply()
-                            }
-                        })
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
             item { SectionHeader(stringResource(R.string.test_header)) }
             item {
                 BenchmarkButton(enabled = canTranscribe, onClick = onBenchmarkTapped)
@@ -295,22 +294,6 @@ private fun AboutButton(onClick: () -> Unit) {
         leadingContent = { Icon(Icons.Outlined.Info, null) },
         trailingContent = { Icon(Icons.AutoMirrored.Outlined.NavigateNext, null) },
         modifier = Modifier.clickable(onClick = onClick)
-    )
-}
-
-@Composable
-private fun MoreButton() {
-    val uriHandler = LocalUriHandler.current
-    ListItem(
-        headlineContent = { Text(stringResource(R.string.more_button)) },
-        supportingContent = { Text(stringResource(R.string.support_text)) },
-        trailingContent = {
-            Icon(
-                Icons.AutoMirrored.Outlined.NavigateNext, null
-            )
-        },
-        leadingContent = { Icon(Icons.Outlined.Star, null) },
-        modifier = Modifier.clickable(onClick = { uriHandler.openUri("https://kaisoapbox.com") })
     )
 }
 

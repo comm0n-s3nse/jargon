@@ -12,7 +12,6 @@
     <string name="input_method_button">Enable Kaiboard</string>
     <string name="input_method_description">Enable in input method settings</string>
     <string name="support_text">Consider supporting Kai on Ko-Fi!</string>
-    <string name="more_button">More by Kai</string>
     <string name="setup_header">Essential Setup</string>
     <string name="advanced_header">Advanced</string>
     <string name="return_button">Return</string>
@@ -40,7 +39,7 @@
     <string name="model_loading">Loading model…</string>
     <string name="model_fallback">That model wouldn\'t load; using the built-in one</string>
     <string name="model_header">Speech model</string>
-    <string name="model_built_in">built in</string>
+    <string name="model_built_in">built-in</string>
     <string name="model_english_only">English only</string>
     <string name="model_multilingual">Multilingual</string>
     <string name="model_remove">Remove</string>
@@ -60,6 +59,20 @@
     <string name="about_title">About</string>
     <string name="about_back">Back</string>
     <string name="about_version">Version %1$s</string>
-    <string name="about_summary">A fork of Kaiboard. Speech is recognized on this phone: the app asks for no network permission, so nothing is uploaded. Tap an entry for its license.</string>
+    <string name="about_summary">A fork of Kaiboard. Speech is recognized on this phone and never leaves it. The app uses the internet only to download a speech model when you tap Download. Tap an entry below for its license.</string>
     <string name="about_website">Open website</string>
+    <string name="model_download">Download</string>
+    <string name="model_cancel">Cancel</string>
+    <string name="model_coming_soon">Coming soon</string>
+    <string name="model_downloading">Downloading… %1$d%%</string>
+    <string name="model_checking">Checking… %1$d%%</string>
+    <string name="model_download_failed">Couldn\'t download %1$s (%2$s)</string>
+    <string name="model_download_done">%1$s is ready. Select it to use it.</string>
+    <string name="download_title">Download %1$s?</string>
+    <string name="download_facts">Download size: %1$s. Needs %2$s of memory while it runs.</string>
+    <string name="download_source">From %1$s. This is the only thing the app uses the internet for, and only when you tap Download.</string>
+    <string name="download_credit">Credit: %1$s</string>
+    <string name="about_original">Original developer</string>
+    <string name="about_extended">Extended by</string>
+    <string name="about_enhanced">Enhanced with</string>
 </resources>
