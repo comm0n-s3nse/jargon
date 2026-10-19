@@ -166,6 +166,7 @@ private fun MainScreen(
                                         remove(threadsStr)
                                         remove(Threads.TUNED)
                                         remove(Threads.TUNED_MODEL)
+                                        remove(Threads.TUNING_STARTED)
                                         apply()
                                     }
                                     threadsManual = false

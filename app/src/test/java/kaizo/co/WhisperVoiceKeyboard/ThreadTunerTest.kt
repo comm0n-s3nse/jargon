@@ -1,5 +1,6 @@
 package kaizo.co.WhisperVoiceKeyboard
 
+import kaizo.co.WhisperVoiceKeyboard.tune.fastCoreCount
 import kaizo.co.WhisperVoiceKeyboard.tune.pickThreads
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -49,8 +50,34 @@ class ThreadTunerTest {
 
     @Test
     fun tiesGoToFewerThreads() {
+        // nothing to choose between, so the fewest threads tried wins (the winner's neighbor, 1)
         val ms = (1..8).associateWith { 500L }
-        assertEquals(2, tune(8, ms))
+        assertEquals(1, tune(8, ms))
+    }
+
+    @Test
+    fun prefersFewerThreadsWhenAlmostAsFast() {
+        // 6 is the fastest by 4%, within the 10% that counts as a tie, so 4 wins
+        val ms = mapOf(2 to 900L, 3 to 700L, 4 to 500L, 5 to 490L, 6 to 480L, 7 to 900L, 8 to 900L)
+        assertEquals(4, tune(8, ms))
+    }
+
+    @Test
+    fun aClearlyFasterCountStillWins() {
+        val ms = mapOf(2 to 900L, 3 to 800L, 4 to 600L, 5 to 480L, 6 to 450L, 7 to 600L, 8 to 700L)
+        assertEquals(5, tune(8, ms))
+    }
+
+    @Test
+    fun countsOnlyTheFastCores() {
+        // ThinkPhone: four efficiency cores at 2.0 GHz, three at 2.75, one at 3.19
+        val thinkPhone = List(4) { 2016000 } + List(3) { 2745600 } + 3187200
+        assertEquals(4, fastCoreCount(thinkPhone))
+        // a phone whose cores are all close in speed uses all of them
+        assertEquals(8, fastCoreCount(List(2) { 4600000 } + List(6) { 3600000 }))
+        // the common 4 + 4 layout
+        assertEquals(4, fastCoreCount(List(4) { 2800000 } + List(4) { 1800000 }))
+        assertEquals(0, fastCoreCount(emptyList()))
     }
 
     @Test

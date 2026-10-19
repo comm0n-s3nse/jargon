@@ -339,13 +339,23 @@ class VoiceKeyboardInputMethodService : InputMethodService(), LifecycleOwner,
         val speech = engine ?: return
         val id = loadedModel?.id ?: return
         if (!Threads.needsTuning(prefs, application.getString(R.string.num_threads), id)) return
+        if (prefs.getBoolean(Threads.TUNING_STARTED, false)) {
+            // the last tune never finished: the process was killed or crashed partway. Do not
+            // try again, which could loop; use the cautious default instead.
+            val safe = Threads.safeDefault(maxThreads)
+            prefs.edit().putInt(Threads.TUNED, safe).putString(Threads.TUNED_MODEL, id)
+                .remove(Threads.TUNING_STARTED).apply()
+            printMessage("Tuning was interrupted last time; using $safe threads\n")
+            return
+        }
+        prefs.edit().putBoolean(Threads.TUNING_STARTED, true).commit()
         try {
             val sample = tuningSample()
             val started = SystemClock.elapsedRealtime()
             statusText = getString(R.string.tuning_start)
             speech.transcribe(sample, 4, "en") // warm-up, so the first trial is not penalized
             val best = pickThreads(
-                maxThreads,
+                Threads.fastCores(maxThreads),
                 { done, total -> statusText = getString(R.string.tuning_progress, done, total) }
             ) { t ->
                 var fastest = Long.MAX_VALUE
@@ -359,7 +369,8 @@ class VoiceKeyboardInputMethodService : InputMethodService(), LifecycleOwner,
                 printMessage("tune: $t threads -> $fastest ms\n")
                 fastest
             }
-            prefs.edit().putInt(Threads.TUNED, best).putString(Threads.TUNED_MODEL, id).apply()
+            prefs.edit().putInt(Threads.TUNED, best).putString(Threads.TUNED_MODEL, id)
+                .remove(Threads.TUNING_STARTED).apply()
             printMessage("Tuned to $best threads in ${SystemClock.elapsedRealtime() - started} ms\n")
             statusText = getString(R.string.tuned_done, best)
             scope.launch {
@@ -369,6 +380,7 @@ class VoiceKeyboardInputMethodService : InputMethodService(), LifecycleOwner,
         } catch (e: Exception) {
             // an untuned keyboard still works, with the default thread count
             Log.w(LOG_TAG, e)
+            prefs.edit().remove(Threads.TUNING_STARTED).apply()
             statusText = null
         }
     }
