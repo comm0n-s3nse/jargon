@@ -14,6 +14,11 @@ android {
         targetSdk 34
         versionCode 1
         versionName "1.0"
+        // arm64 only: parakeet.cpp and transcribe.cpp build for it alone, and every phone that can
+        // run these models is arm64. Shipping whisper for other ABIs would install a half-working app.
+        ndk {
+            abiFilters 'arm64-v8a'
+        }
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         signingConfig signingConfigs.debug
