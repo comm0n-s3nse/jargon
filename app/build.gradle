@@ -23,6 +23,9 @@ android {
     }
 
     buildTypes {
+        debug {
+            applicationIdSuffix '.fork'
+        }
         release {
 
             // Enables code shrinking, obfuscation, and optimization for only
