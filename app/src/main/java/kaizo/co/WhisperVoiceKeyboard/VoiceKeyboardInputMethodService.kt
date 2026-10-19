@@ -489,6 +489,10 @@ class VoiceKeyboardInputMethodService : InputMethodService(), LifecycleOwner,
                 val upper = sentenceStart
                 if (upper != null) text = text?.let { matchFirstLetterCase(it, upper) }
             }
+            // a search bar or address box wants "Maple Street", not "Maple Street."
+            if (replaced == null && isSingleLineField(currentInputEditorInfo?.inputType ?: 0)) {
+                text = text?.let { withoutClosingPunctuation(it) }
+            }
             // add text only if non-empty
             // avoids adding just a single space for empty messages
             if (text?.length!! > 0) {
