@@ -17,7 +17,7 @@ Colours come from the theme: `primary` / `onPrimary` for the key and its ink,
 | Moment | What happens |
 |---|---|
 | Press | The ring grows from the thumb to the far corner over the 240 ms gate, 2.5 dp, in the key's ink colour (as today). |
-| Arm (ring reaches the edge) | The key fills from its container colour to the strong primary over 120 ms, the icon inverts to the on-colour, and one 1.5 dp edge pulse fades over 150 ms, timed with the vibration that already fires here. |
+| Arm (ring reaches the edge) | The key fills over 120 ms to the live colour (62 % of the way from primary to primaryContainer, a mid blue in the dark theme; the container itself was near-black), the icon inverts to the on-colour, and one 1.5 dp edge pulse fades over 150 ms, timed with the vibration that already fires here. |
 | Hold | A solid filled key, steady, with a faint 1.5 dp outline that breathes between 25 % and 40 % opacity over about 1.5 s. No particles. |
 | Drag up to cancel | Past 10 mm the whole key turns red with white content (a tint over the dark fill read as purple), with the tick that already fires. |
 | Release | The fill eases back to the container colour over 160 ms while "Transcribing" shows. |
@@ -25,7 +25,7 @@ Colours come from the theme: `primary` / `onPrimary` for the key and its ink,
 ### Recording in progress (tap mode)
 
 The key stays in the strong primary fill. Left to right inside it: the check icon, five
-level bars, the timer. The bars are 5 dp wide, 9 dp apart, 6 to 28 dp tall, rounded, in
+level bars, the timer. The bars are 3 dp wide, 7 dp apart, 6 to 28 dp tall, rounded, in
 the on-colour, each driven by the **real microphone level** (RMS of each buffer the
 recorder reads, published as state; each bar gets its own phase so they do not move as one).
 Timer and icon unchanged.
@@ -43,8 +43,8 @@ by calculation (voice runs 15 to 30 dB over room noise) and still to be seen on 
 
 | Moment | What happens |
 |---|---|
-| Drag | The backspace icon rolls left and fades out while an undo arrow rolls in from the right (28 dp travel, the same roll as enter's gear). The key tints from its container colour to `errorContainer`, icon ink to `onErrorContainer`, in step with the drag. |
-| Threshold (11 mm) | The key fills solid red (the same fixed red as the undo behind it, since Material's `error` is pale in a dark theme), the icon turns white, and the tick fires. **No edge flash** on this key. |
+| Drag | The key stays put. The backspace icon rolls left and fades out while an undo arrow rolls in from the right (28 dp travel, the same roll as enter's gear), and the key tints from primary toward a dark red in step with the drag. The old slide-and-red-patch is gone. |
+| Threshold (11 mm) | The key fills solid dark red (`#A32020`; Material's `error` is pale in a dark theme), the icon turns white, and the tick fires. **No edge flash** on this key. |
 | Release past threshold | Undo, as today. |
 | Release before threshold | Rolls back. |
 

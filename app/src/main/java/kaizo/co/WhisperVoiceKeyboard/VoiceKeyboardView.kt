@@ -8,6 +8,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material.icons.outlined.Settings
 import kotlin.math.sin
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material.icons.automirrored.outlined.Undo
@@ -35,7 +36,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -60,7 +60,6 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -75,7 +74,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kaizo.co.WhisperVoiceKeyboard.ui.theme.KaiboardTheme
@@ -84,7 +82,6 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlin.math.hypot
 import kotlin.math.max
-import kotlin.math.roundToInt
 
 // a press shorter than this is a tap, longer is a hold (word-delete, press-to-talk)
 private const val HOLD_GATE_MS = 240L
@@ -93,6 +90,7 @@ private const val FILL_IN_MS = 120
 private const val FILL_OUT_MS = 160
 private const val PULSE_MS = 150 // the one edge pulse at arming
 private const val ROLL_DP = 28 // how far an icon travels when one rolls out and another rolls in
+private const val LIVE_MIX = 0.62f // how far from primary toward its container the live key goes
 
 // Sizes that matter to a thumb are in millimeters, not dp. A phone's "display size" setting
 // rescales dp, which shrank the keyboard and pushed it against the system nav buttons.
@@ -111,6 +109,7 @@ private const val LANGUAGE_DRAG_MM = 8f // slide left on the mic: quick language
 private const val KEYBOARD_DRAG_MM = 8f // slide left on enter: previous keyboard
 
 private val CancelRed = Color(0xFFD32F2F)
+private val UndoRed = Color(0xFFA32020) // the backspace key once an undo is armed
 
 @Composable
 private fun mmToPx(mm: Float): Float =
@@ -207,8 +206,9 @@ private fun CancelButton(
 }
 
 // Tap deletes one character; holding repeats characters, then speeds up to whole words.
-// Dragging left (toward the mic, one direction only) undoes: red fills in behind the button
-// as it leaves, and letting go past the line undoes the previous edit.
+// Dragging left (toward the mic, one direction only) undoes: the key stays put and tints toward
+// red while the undo arrow rolls in over the backspace, like enter's gear; past the line it turns
+// solid red and ticks, and letting go undoes the previous edit.
 @Composable
 private fun DeleteButton(
     onPress: () -> Unit, onDelete: () -> Unit, onDeleteWord: () -> Unit,
@@ -248,28 +248,16 @@ private fun DeleteButton(
         }
     }
     val progress = (-dragX / undoDistancePx).coerceIn(0f, 1f)
-    // the key tints toward the error colours as it goes, and turns solid once the undo is armed
-    // tints toward the theme's error colour on the way; armed is the same red as the undo behind it
-    val container = if (armed) CancelRed else lerp(scheme.primary, scheme.error, progress)
-    val content = if (armed) Color.White else lerp(scheme.onPrimary, scheme.onError, progress)
-    Box(
-        modifier = modifier.drawBehind {
-            // what the button leaves behind: red that deepens as the undo gets closer
-            if (progress > 0f) {
-                drawRoundRect(
-                    CancelRed.copy(alpha = 0.2f + 0.7f * progress),
-                    cornerRadius = CornerRadius(8.dp.toPx()),
-                )
-            }
-        }
-    ) {
+    // the key tints toward red as it goes, and is solid red once the undo is armed
+    val container = if (armed) UndoRed else lerp(scheme.primary, UndoRed, progress * 0.8f)
+    val content = if (armed) Color.White else lerp(scheme.onPrimary, Color.White, progress * 0.8f)
+    Box(modifier = modifier) {
         Button(
             onClick = {},
             interactionSource = interactionSource,
             modifier = Modifier
                 .width(keyWidth)
                 .heightIn(min = buttonHeight)
-                .offset { IntOffset(dragX.roundToInt(), 0) }
                 .pointerInput(Unit) {
                     detectHorizontalDragGestures(
                         onDragEnd = {
@@ -419,9 +407,9 @@ private fun LevelBars(level: () -> Float, modifier: Modifier) {
         }
     }
     val color = LocalContentColor.current
-    Canvas(modifier.width(41.dp).height(28.dp)) {
-        val w = 5.dp.toPx()
-        val pitch = 9.dp.toPx()
+    Canvas(modifier.width(31.dp).height(28.dp)) {
+        val w = 3.dp.toPx()
+        val pitch = 7.dp.toPx()
         history.forEachIndexed { i, v ->
             val h = (6.dp + 22.dp * v).toPx()
             drawRoundRect(
@@ -485,9 +473,12 @@ private fun RecordButton(
             breath = 0.25f + 0.15f * sin(t / 240f)
         }
     }
-    // the colours follow the theme: the resting key is primary, the live key its container colour
-    val container = if (cancelArmed) CancelRed else lerp(scheme.primary, scheme.primaryContainer, fill.value)
-    val content = if (cancelArmed) Color.White else lerp(scheme.onPrimary, scheme.onPrimaryContainer, fill.value)
+    // the colours follow the theme: the resting key is primary; the live key sits part-way toward
+    // the container colour (the container itself is near-black in a dark theme), with white on it
+    val liveBg = lerp(scheme.primary, scheme.primaryContainer, LIVE_MIX)
+    val liveFg = if (liveBg.luminance() < 0.4f) Color.White else scheme.onPrimaryContainer
+    val container = if (cancelArmed) CancelRed else lerp(scheme.primary, liveBg, fill.value)
+    val content = if (cancelArmed) Color.White else lerp(scheme.onPrimary, liveFg, fill.value)
     val ringColor = scheme.onPrimary
     // the quick language list, drawn inside the button while a left slide is in progress
     var menu by remember { mutableStateOf<List<Pair<String, String>>?>(null) }
@@ -557,11 +548,9 @@ private fun RecordButton(
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                     }
                     var dragUp = 0f
-                    var lastPos = down.position
                     while (true) {
                         val event = awaitPointerEvent(PointerEventPass.Initial)
                         val change = event.changes.firstOrNull { it.id == down.id } ?: break
-                        lastPos = change.position
                         dragUp = (down.position.y - change.position.y).coerceAtLeast(0f)
                         val dragLeft = (down.position.x - change.position.x).coerceAtLeast(0f)
                         if (menu == null && startedOnPress && dragLeft >= languageDistancePx && dragLeft > dragUp) {
