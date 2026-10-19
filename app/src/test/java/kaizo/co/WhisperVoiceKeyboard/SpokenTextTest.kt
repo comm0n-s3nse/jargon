@@ -47,4 +47,12 @@ class SpokenTextTest {
         assertEquals("Great 👍 thanks", SpokenText.emoji("Great thumbs up thanks"))
         assertEquals("A sad faced man", SpokenText.emoji("A sad faced man"))
     }
+
+    @Test
+    fun noCommaStuckToAnEmoji() {
+        assertEquals("You're a goof 😂", SpokenText.emoji("You're a goof, laughing face."))
+        assertEquals("Fine 🤷 whatever", SpokenText.emoji("Fine, shrug emoji, whatever"))
+        assertEquals("🙂 see you soon.", SpokenText.emoji("Smiley face, see you soon."))
+        assertEquals("Nice, really nice", SpokenText.emoji("Nice, really nice"))
+    }
 }

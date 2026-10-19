@@ -147,7 +147,6 @@ private fun MainScreen(
             if (!setup.hapticsOn) item { HapticsButton() }
             item { AboutButton(onAboutTapped) }
             if (setup.keyboardEnabled) item { InputMethodButton(enabled = true) }
-            item { AppearanceButton(onAppearanceTapped) }
             item { ModelSettings() }
             item { SectionHeader(stringResource(R.string.behavior_header)) }
             item {
@@ -190,6 +189,7 @@ private fun MainScreen(
             }
             item { SpokenPunctuationItem(sharedPref) }
             item { SpokenEmojiItem(sharedPref) }
+            item { AppearanceButton(onAppearanceTapped) }
             item { SectionHeader(stringResource(R.string.advanced_header), bp = 4.dp) }
             item {
                 ListItem(
@@ -352,8 +352,8 @@ private fun InputMethodButton(enabled: Boolean) {
                 Icons.Outlined.Keyboard, null
             )
         },
-        supportingContent = {
-            Text(stringResource(if (enabled) R.string.keyboards_description else R.string.input_method_description))
+        supportingContent = if (enabled) null else {
+            { Text(stringResource(R.string.input_method_description)) }
         },
         trailingContent = {
             Icon(
@@ -371,7 +371,6 @@ private fun InputMethodButton(enabled: Boolean) {
 private fun AppearanceButton(onClick: () -> Unit) {
     ListItem(
         headlineContent = { Text(stringResource(R.string.appearance_title)) },
-        supportingContent = { Text(stringResource(R.string.appearance_description)) },
         leadingContent = { Icon(Icons.Outlined.Palette, null) },
         trailingContent = { Icon(Icons.AutoMirrored.Outlined.NavigateNext, null) },
         modifier = Modifier.clickable(onClick = onClick)
@@ -437,7 +436,6 @@ private fun SpokenEmojiItem(prefs: android.content.SharedPreferences) {
 private fun AboutButton(onClick: () -> Unit) {
     ListItem(
         headlineContent = { Text(stringResource(R.string.about_button)) },
-        supportingContent = { Text(stringResource(R.string.about_button_description)) },
         leadingContent = { Icon(Icons.Outlined.Info, null) },
         trailingContent = { Icon(Icons.AutoMirrored.Outlined.NavigateNext, null) },
         modifier = Modifier.clickable(onClick = onClick)

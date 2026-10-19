@@ -6,15 +6,15 @@ Categories:
   - Keyboard & IME
   - Speech Recognizer
 License: BSD-3-Clause
-AuthorName: pswel1
-SourceCode: https://github.com/pswel1/falaboard
-IssueTracker: https://github.com/pswel1/falaboard/issues
-Changelog: https://github.com/pswel1/falaboard/blob/HEAD/FORK.md
+AuthorName: comm0n-s3nse
+SourceCode: https://github.com/comm0n-s3nse/falaboard
+IssueTracker: https://github.com/comm0n-s3nse/falaboard/issues
+Changelog: https://github.com/comm0n-s3nse/falaboard/blob/HEAD/FORK.md
 
 AutoName: Falaboard
 
 RepoType: git
-Repo: https://github.com/pswel1/falaboard.git
+Repo: https://github.com/comm0n-s3nse/falaboard.git
 
 Builds:
   - versionName: 1.1.0

@@ -88,12 +88,20 @@ object SpokenText {
 
     // the phrase as whole words, swallowing a period the model may put after it
     private val emoji = Regex("""(?<![\p{L}\p{N}])($emojiPhrases)(?![\p{L}\p{N}])\.?""", RegexOption.IGNORE_CASE)
+    private val emojiChars = EMOJI.joinToString("|") { Regex.escape(it.second) }
 
-    /** Spoken emoji anywhere in [text] become the emoji. */
-    fun emoji(text: String): String =
-        emoji.replace(text) { m ->
+    // the pause before "laughing face" comes out as a comma: "a goof, 😂" reads wrong, so the comma goes
+    private val commaBefore = Regex("""\s*[,;:]\s*(?=(?:$emojiChars))""")
+    private val commaAfter = Regex("""(?<=(?:$emojiChars))\s*[,;:](?=\s|$)""")
+
+    /** Spoken emoji anywhere in [text] become the emoji, with no comma stuck to them. */
+    fun emoji(text: String): String {
+        val out = emoji.replace(text) { m ->
             EMOJI.first { it.first.equals(m.groupValues[1], ignoreCase = true) }.second
         }
+        if (out == text) return text
+        return commaAfter.replace(commaBefore.replace(out, " "), "").trim()
+    }
 
     private fun upperFirst(s: String): String {
         val i = s.indexOfFirst { !it.isWhitespace() }

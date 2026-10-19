@@ -7,6 +7,7 @@ import kaizo.co.WhisperVoiceKeyboard.models.ModelEntry
 import kaizo.co.WhisperVoiceKeyboard.models.LANGUAGE_KEY
 import kaizo.co.WhisperVoiceKeyboard.models.TRANSLATE_KEY
 import kaizo.co.WhisperVoiceKeyboard.ui.main.ENTER_HINT_KEY
+import kaizo.co.WhisperVoiceKeyboard.models.RECENT_TRANSLATE_MAX
 import kaizo.co.WhisperVoiceKeyboard.models.recentTranslateTargets
 import kaizo.co.WhisperVoiceKeyboard.models.rememberTranslateTarget
 import kaizo.co.WhisperVoiceKeyboard.models.ACTIVE_MODEL_KEY
@@ -412,8 +413,10 @@ class VoiceKeyboardInputMethodService : InputMethodService(), LifecycleOwner,
     fun quickLanguages(): List<Pair<String, String>> {
         if (engine?.canTranslate != true) return emptyList()
         val prefs = sharedPref ?: return emptyList()
-        return listOf("" to application.getString(R.string.quick_same)) +
-            recentTranslateTargets(prefs).map { it to it.uppercase() }
+        // "Same" is the language being spoken, so that one is not offered again; English always is
+        val spoken = language()
+        val targets = (recentTranslateTargets(prefs) + "en").distinct().filter { it != spoken }.take(RECENT_TRANSLATE_MAX)
+        return listOf("" to application.getString(R.string.quick_same)) + targets.map { it to it.uppercase() }
     }
 
     fun quickLanguageCurrent(): String = sharedPref?.getString(TRANSLATE_KEY, "").orEmpty()

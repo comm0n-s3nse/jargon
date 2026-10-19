@@ -9,7 +9,6 @@ import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.offset
-import kotlin.math.sin
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.material3.LocalContentColor
@@ -483,19 +482,12 @@ private fun RecordButton(
     var charging by remember { mutableStateOf(false) }
     val fill = remember { Animatable(0f) } // 0: resting key, 1: the filled live key
     val pulse = remember { Animatable(0f) } // the edge pulse at arming, 1 fading to 0
-    var breath by remember { mutableFloatStateOf(0f) } // the outline's slow breathing while held
     val live = isRecording && !charging
     LaunchedEffect(live) {
         fill.animateTo(if (live) 1f else 0f, tween(if (live) FILL_IN_MS else FILL_OUT_MS))
     }
     LaunchedEffect(holdMode) {
-        if (!holdMode) return@LaunchedEffect
-        launch { pulse.snapTo(1f); pulse.animateTo(0f, tween(PULSE_MS)) }
-        val start = withFrameNanos { it }
-        while (true) {
-            val t = (withFrameNanos { it } - start) / 1_000_000f
-            breath = 0.25f + 0.15f * sin(t / 240f)
-        }
+        if (holdMode) { pulse.snapTo(1f); pulse.animateTo(0f, tween(PULSE_MS)) }
     }
     // the resting key follows the theme; the live key is one fixed blue with white on it, so the
     // live state looks the same on every phone (the theme's container blue came out dull and dark)
@@ -527,10 +519,10 @@ private fun RecordButton(
                         style = Stroke(width = 2.5.dp.toPx())
                     )
                 } else {
-                    // held: the key is filled (see colors); one pulse at the edge, then a faint breathing outline
+                    // held: the key is filled (see colors), with one pulse at the edge as it arms
                     val corner = CornerRadius(8.dp.toPx())
                     val outline = content
-                    for ((width, alpha) in listOf(3f to pulse.value, 1.5f to breath)) {
+                    for ((width, alpha) in listOf(3f to pulse.value)) {
                         val w = width.dp.toPx()
                         drawRoundRect(
                             outline.copy(alpha = alpha), cornerRadius = corner,

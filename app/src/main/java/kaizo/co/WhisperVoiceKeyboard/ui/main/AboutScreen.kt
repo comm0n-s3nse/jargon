@@ -27,6 +27,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -43,6 +44,11 @@ private data class Credit(
     val url: String,
     val licenseFile: String? = null, // under assets/licenses/; null when the work is not in the app
 )
+
+// The person who made this fork, and where to find them.
+private const val FORK_AUTHOR = "comm0n-s3nse"
+private const val FORK_GITHUB = "https://github.com/comm0n-s3nse"
+private const val FORK_X = "https://x.com/comm0n_s3nse"
 
 // Keep in step with FORK.md and the libraries in app/build.gradle. BSD-3 and MIT require the
 // copyright notice and license text to accompany the app, which is what the files are for.
@@ -151,7 +157,17 @@ private fun People() {
         )
         ListItem(
             headlineContent = { Text(stringResource(R.string.about_extended)) },
-            supportingContent = { Text("pswel1") },
+            supportingContent = { Text(FORK_AUTHOR) },
+            trailingContent = {
+                Row {
+                    IconButton(onClick = { uriHandler.openUri(FORK_GITHUB) }) {
+                        Icon(painterResource(R.drawable.ic_github), "GitHub")
+                    }
+                    IconButton(onClick = { uriHandler.openUri(FORK_X) }) {
+                        Icon(painterResource(R.drawable.ic_x), "X")
+                    }
+                }
+            },
         )
         ListItem(
             headlineContent = { Text(stringResource(R.string.about_enhanced)) },

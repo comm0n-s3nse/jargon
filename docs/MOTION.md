@@ -18,7 +18,7 @@ Resting keys take `primary` / `onPrimary` from the theme. The live and armed col
 |---|---|
 | Press | The ring grows from the thumb to the far corner over the 240 ms gate, 2.5 dp, in the key's ink colour (as today). |
 | Arm (ring reaches the edge) | The key fills over 120 ms to the live colour (a fixed `#4F7DF3`, matched to the mockup; the theme's own blues came out dull or near-black), the icon inverts to the on-colour, and one 1.5 dp edge pulse fades over 150 ms, timed with the vibration that already fires here. |
-| Hold | A solid filled key, steady, with a faint 1.5 dp outline that breathes between 25 % and 40 % opacity over about 1.5 s. No particles. |
+| Hold | A solid filled key, steady. (A breathing outline was tried and shelved for Charge: at 1.5 dp it pinched the key's sides.) |
 | Drag up to cancel | Past 10 mm the whole key turns red with white content (a tint over the dark fill read as purple), with the tick that already fires. |
 | Release | The fill eases back to the container colour over 160 ms while "Transcribing" shows. |
 
