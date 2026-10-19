@@ -1,5 +1,9 @@
 package kaizo.co.WhisperVoiceKeyboard.ui.main
 
+import kaizo.co.WhisperVoiceKeyboard.models.languageFor
+import kaizo.co.WhisperVoiceKeyboard.models.ModelStore
+import kaizo.co.WhisperVoiceKeyboard.models.ModelEntry
+import kaizo.co.WhisperVoiceKeyboard.models.LANGUAGE_KEY
 import kaizo.co.WhisperVoiceKeyboard.tune.Threads
 import android.app.Application
 import android.content.Context
@@ -44,44 +48,33 @@ class MainScreenViewModel(private val application: Application) : ViewModel() {
     private var mediaPlayer: MediaPlayer? = null
     private var recordedFile: File? = null
     private var currentJob: Job? = null
+    private var loadedModel: ModelEntry? = null
 
     init {
-        viewModelScope.launch {
-            printSystemInfo()
-            loadModel()
-        }
+        viewModelScope.launch { printSystemInfo() }
+        // the model loads when first needed, so opening settings does not keep a second copy
+        canTranscribe = true
     }
 
     private suspend fun printSystemInfo() {
         printMessage(String.format("System Info: %s\n", WhisperContext.getSystemInfo()))
     }
 
-    private suspend fun loadModel() {
-        printMessage("Loading...\n")
-        try {
-            loadBaseModel()
-            canTranscribe = true
-        } catch (e: Exception) {
-            Log.w(LOG_TAG, e)
-            printMessage("${e.localizedMessage}\n")
-        }
-    }
-
     private suspend fun printMessage(msg: String) = withContext(Dispatchers.Main) {
         dataLog += msg
     }
 
-    private suspend fun loadBaseModel() = withContext(Dispatchers.IO) {
-        printMessage("Loading model...\n")
-        val models = application.assets.list("models/")
-        if (models != null) {
-            whisperContext =
-                WhisperContext.createContextFromAsset(application.assets, "models/" + models[0])
-            printMessage("Loaded model ${models[0]}.\n")
-        }
-
-        //val firstModel = modelsPath.listFiles()!!.first()
-        //whisperContext = WhisperContext.createContextFromFile(firstModel.absolutePath)
+    // loads the model chosen in settings, replacing the one in memory if that changed
+    private suspend fun ensureModel() = withContext(Dispatchers.IO) {
+        val store = ModelStore(application)
+        val wanted = store.active(sharedPref)
+        if (whisperContext != null && loadedModel?.id == wanted.id) return@withContext
+        printMessage("Loading model ${wanted.fileName}...\n")
+        whisperContext?.release()
+        whisperContext = null
+        whisperContext = store.open(wanted)
+        loadedModel = wanted
+        printMessage("Loaded model ${wanted.fileName}.\n")
     }
 
     fun benchmark() = viewModelScope.launch {
@@ -96,6 +89,7 @@ class MainScreenViewModel(private val application: Application) : ViewModel() {
         }
 
         canTranscribe = false
+        ensureModel()
 
         printMessage("Running benchmark. This will take minutes...\n")
         whisperContext?.benchMemory(nthreads)?.let { printMessage(it) }
@@ -128,7 +122,10 @@ class MainScreenViewModel(private val application: Application) : ViewModel() {
             Threads.effective(sharedPref, application.getString(R.string.num_threads), maxThreads)
         printMessage("Transcribing data...\n")
         val start = System.currentTimeMillis()
-        val text = whisperContext?.transcribeData(data, numThreads = nThreads)
+        val language = languageFor(
+            loadedModel?.fileName.orEmpty(), sharedPref.getString(LANGUAGE_KEY, "en") ?: "en"
+        )
+        val text = whisperContext?.transcribeData(data, numThreads = nThreads, language = language)
         val elapsed = System.currentTimeMillis() - start
         printMessage("Done ($elapsed ms): \n$text\n")
     }
@@ -184,6 +181,7 @@ class MainScreenViewModel(private val application: Application) : ViewModel() {
                 recordedFile?.let { transcribeFile(it) }
             } else {
                 stopPlayback()
+                ensureModel()
                 val file = getTempFileForRecording()
                 recorder.startRecording(file, onError, transcriptionCallback)
                 isRecording = true

@@ -1,5 +1,12 @@
 package kaizo.co.WhisperVoiceKeyboard
 
+import kaizo.co.WhisperVoiceKeyboard.models.languageFor
+import kaizo.co.WhisperVoiceKeyboard.models.ModelStore
+import kaizo.co.WhisperVoiceKeyboard.models.ModelEntry
+import kaizo.co.WhisperVoiceKeyboard.models.LANGUAGE_KEY
+import kaizo.co.WhisperVoiceKeyboard.models.ACTIVE_MODEL_KEY
+import kaizo.co.WhisperVoiceKeyboard.engine.WhisperEngine
+import kaizo.co.WhisperVoiceKeyboard.engine.SpeechEngine
 import kotlin.math.sin
 import kotlin.math.PI
 import kotlinx.coroutines.delay
@@ -77,8 +84,8 @@ class VoiceKeyboardInputMethodService : InputMethodService(), LifecycleOwner,
             edits.clear()
             runEdit = null
         }
-        // picks up "Auto" being tapped in settings while the service is already running
-        scope.launch { if (canTranscribe && !isRecording) ensureTuned() }
+        // picks up a model or "Auto" chosen in settings while the service is already running
+        scope.launch { if (!isRecording) prepare() }
     }
 
     // an edit only stays undoable while the text around the cursor is still what it left,
@@ -132,8 +139,8 @@ class VoiceKeyboardInputMethodService : InputMethodService(), LifecycleOwner,
         super.onDestroy()
         runBlocking {
             if (isRecording) recorder.stopRecording()
-            whisperContext?.release()
-            whisperContext = null
+            engine?.release()
+            engine = null
         }
         handleLifecycleEvent(Lifecycle.Event.ON_DESTROY)
     }
@@ -143,7 +150,8 @@ class VoiceKeyboardInputMethodService : InputMethodService(), LifecycleOwner,
     override val savedStateRegistry: SavedStateRegistry = savedStateRegistryCtrl.savedStateRegistry
 
     // copy whispercppdemo MainScreenViewModel implementation
-    private var whisperContext: WhisperContext? = null
+    private var engine: SpeechEngine? = null
+    private var loadedModel: ModelEntry? = null
     private var recordedFile: File? = null
     private var recorder: Recorder = Recorder()
     var canTranscribe by mutableStateOf(false)
@@ -157,8 +165,7 @@ class VoiceKeyboardInputMethodService : InputMethodService(), LifecycleOwner,
     // shown on the mic button while the keyboard times itself ("Tuning… 2/6")
     var statusText by mutableStateOf<String?>(null)
         private set
-    private var tuning = false
-    private var modelName = ""
+    private var busy = false // loading a model or tuning; the mic waits
 
     private var leading: String = ""
     private var trailing: String = ""
@@ -272,19 +279,71 @@ class VoiceKeyboardInputMethodService : InputMethodService(), LifecycleOwner,
         }
     }
 
-    // First use on a phone (or after "Auto" in settings): time a few thread counts and keep
-    // the fastest. The mic button says what is happening while it runs.
-    private suspend fun ensureTuned() {
+    // Loads the selected model if it is not the one in memory, then tunes the thread count if
+    // that has not been done for it. Cheap when there is nothing to do, so it runs each time
+    // the keyboard opens and picks up changes made in settings.
+    private suspend fun prepare() {
         val prefs = sharedPref ?: return
-        val ctx = whisperContext ?: return
-        if (tuning || !Threads.needsTuning(prefs, application.getString(R.string.num_threads), modelName)) return
-        tuning = true
+        if (busy) return
+        val store = ModelStore(application)
+        val wanted = store.active(prefs)
+        val needsLoad = engine == null || loadedModel?.id != wanted.id
+        val userKey = application.getString(R.string.num_threads)
+        if (!needsLoad && !Threads.needsTuning(prefs, userKey, wanted.id)) return
+        busy = true
         canTranscribe = false
+        try {
+            if (needsLoad) loadModel(store, wanted)
+            tuneIfNeeded()
+        } catch (e: Exception) {
+            Log.w(LOG_TAG, e)
+            printMessage("${e.localizedMessage}\n")
+            statusText = null
+        } finally {
+            busy = false
+            canTranscribe = engine != null
+        }
+    }
+
+    // One model in memory at a time: the old one is released before the new one loads.
+    private suspend fun loadModel(store: ModelStore, wanted: ModelEntry) =
+        withContext(Dispatchers.IO) {
+            printMessage("Loading model ${wanted.fileName}...\n")
+            statusText = getString(R.string.model_loading)
+            engine?.release()
+            engine = null
+            loadedModel = null
+            var entry = wanted
+            var note: String? = null
+            val context = try {
+                store.open(entry)
+            } catch (e: Exception) {
+                if (entry.builtIn) throw e
+                // a model that will not load must not leave the keyboard dead
+                Log.w(LOG_TAG, e)
+                sharedPref?.edit()?.remove(ACTIVE_MODEL_KEY)?.apply()
+                entry = store.list().first { it.builtIn }
+                note = getString(R.string.model_fallback)
+                store.open(entry)
+            }
+            engine = WhisperEngine(context)
+            loadedModel = entry
+            statusText = note
+            printMessage("Loaded model ${entry.fileName}.\n")
+        }
+
+    // First use on a phone with this model (or after "Auto" in settings): time a few thread
+    // counts and keep the fastest. The mic button says what is happening while it runs.
+    private suspend fun tuneIfNeeded() {
+        val prefs = sharedPref ?: return
+        val speech = engine ?: return
+        val id = loadedModel?.id ?: return
+        if (!Threads.needsTuning(prefs, application.getString(R.string.num_threads), id)) return
         try {
             val sample = tuningSample()
             val started = SystemClock.elapsedRealtime()
             statusText = getString(R.string.tuning_start)
-            ctx.transcribeData(sample, false, 4) // warm-up, so the first trial is not penalized
+            speech.transcribe(sample, 4, "en") // warm-up, so the first trial is not penalized
             val best = pickThreads(
                 maxThreads,
                 { done, total -> statusText = getString(R.string.tuning_progress, done, total) }
@@ -292,7 +351,7 @@ class VoiceKeyboardInputMethodService : InputMethodService(), LifecycleOwner,
                 var fastest = Long.MAX_VALUE
                 for (run in 1..2) {
                     val t0 = SystemClock.elapsedRealtime()
-                    ctx.transcribeData(sample, false, t)
+                    speech.transcribe(sample, t, "en")
                     val ms = SystemClock.elapsedRealtime() - t0
                     fastest = minOf(fastest, ms)
                     if (ms > 2000) break // slow phone: one run per setting keeps the wait short
@@ -300,20 +359,23 @@ class VoiceKeyboardInputMethodService : InputMethodService(), LifecycleOwner,
                 printMessage("tune: $t threads -> $fastest ms\n")
                 fastest
             }
-            prefs.edit().putInt(Threads.TUNED, best).putString(Threads.TUNED_MODEL, modelName).apply()
+            prefs.edit().putInt(Threads.TUNED, best).putString(Threads.TUNED_MODEL, id).apply()
             printMessage("Tuned to $best threads in ${SystemClock.elapsedRealtime() - started} ms\n")
             statusText = getString(R.string.tuned_done, best)
             scope.launch {
                 delay(3000)
-                if (!tuning) statusText = null
+                if (!busy) statusText = null
             }
         } catch (e: Exception) {
+            // an untuned keyboard still works, with the default thread count
             Log.w(LOG_TAG, e)
             statusText = null
-        } finally {
-            tuning = false
-            canTranscribe = true
         }
+    }
+
+    private fun language(): String {
+        val file = loadedModel?.fileName ?: return "en"
+        return languageFor(file, sharedPref?.getString(LANGUAGE_KEY, "en") ?: "en")
     }
 
     private fun checkBoolPref(resource: Int): Boolean? {
@@ -330,9 +392,7 @@ class VoiceKeyboardInputMethodService : InputMethodService(), LifecycleOwner,
         printMessage("Loading data...\n")
         try {
             copyAssets()
-            loadBaseModel()
-            ensureTuned()
-            canTranscribe = true
+            prepare()
         } catch (e: Exception) {
             Log.w(LOG_TAG, e)
             printMessage("${e.localizedMessage}\n")
@@ -349,22 +409,6 @@ class VoiceKeyboardInputMethodService : InputMethodService(), LifecycleOwner,
         //application.copyData("models", modelsPath, ::printMessage)
         //samplesPath?.let { application.copyData("samples", it, ::printMessage) }
         printMessage("All data copied to working directory.\n")
-    }
-
-    private suspend fun loadBaseModel() = withContext(Dispatchers.IO) {
-        printMessage("Loading model...\n")
-        val models = application.assets.list("models/")
-        if (models != null) {
-            whisperContext =
-                WhisperContext.createContextFromAsset(application.assets, "models/" + models[0])
-            modelName = models[0]
-            printMessage("Loaded model ${models[0]}.\n")
-        } else {
-            throw Exception("no models found")
-        }
-
-        //val firstModel = modelsPath.listFiles()!!.first()
-        //whisperContext = WhisperContext.createContextFromFile(firstModel.absolutePath)
     }
 
     private suspend fun transcribeFile(file: File) {
@@ -396,7 +440,7 @@ class VoiceKeyboardInputMethodService : InputMethodService(), LifecycleOwner,
             val nThreads = threads()
             printMessage("Transcribing data...\n")
             val start = System.currentTimeMillis()
-            var text = whisperContext?.transcribeData(data, false, nThreads)?.trim()
+            var text = engine?.transcribe(data, nThreads, language())?.trim()
             printMessage(text.toString())
             // remove special tokens like [MUSIC] or [BLANK_AUDIO]
             // bizarrely, it sometimes also does *music* or (music) so handle these case-s too

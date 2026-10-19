@@ -52,6 +52,11 @@ it can sit next to the Play or F-Droid app.
 - **Thread auto-tune:** the keyboard times a few thread counts on first use and keeps the fastest
   (8 threads measured up to 3x slower than 6 on one phone). The mic button shows progress, settings
   shows the result, and "Auto" re-tunes. A value you set by hand always wins.
+- **Choose the speech model and language.** Settings lists the bundled model plus any whisper.cpp
+  `.bin` the user adds from the file picker (checked by its header, copied into the app, kept
+  out of backups). One model is in memory at a time; a model that will not load falls back to
+  the bundled one. The language can be set or auto-detected, and English-only models always get
+  English. Behind this is a small `SpeechEngine` interface so other engines can be added.
 
 See `KAIBOARD.md` in the parent project for the plan these came from.
 

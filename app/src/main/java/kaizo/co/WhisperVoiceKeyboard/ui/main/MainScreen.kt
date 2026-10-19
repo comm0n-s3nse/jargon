@@ -180,6 +180,7 @@ private fun MainScreen(
                         .padding(0.dp),
                 )
             }
+            item { ModelSettings() }
             item {
                 ListItem(
                     headlineContent = { Text(stringResource(R.string.pause_media_option)) },

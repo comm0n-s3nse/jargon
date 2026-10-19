@@ -37,4 +37,16 @@
     <string name="threads_manual">Set by you. Tap Auto to let the keyboard time itself again.</string>
     <string name="threads_pending">Not tuned yet. The keyboard times itself the next time it opens (a few seconds).</string>
     <string name="threads_reset">Auto</string>
+    <string name="model_loading">Loading model…</string>
+    <string name="model_fallback">That model wouldn\'t load; using the built-in one</string>
+    <string name="model_header">Speech model</string>
+    <string name="model_built_in">built in</string>
+    <string name="model_english_only">English only</string>
+    <string name="model_multilingual">Multilingual</string>
+    <string name="model_remove">Remove</string>
+    <string name="model_add">Add a model file</string>
+    <string name="model_add_hint">A whisper.cpp .bin file, such as ggml-base-q5_1.bin. Copied into the app; nothing is uploaded.</string>
+    <string name="model_switch_note">The keyboard switches to it the next time it opens.</string>
+    <string name="language_option">Language</string>
+    <string name="language_english_only">English only for this model</string>
 </resources>
