@@ -1,25 +1,24 @@
-# DRAFT of the F-Droid build recipe: it would live as metadata/<applicationId>.yml in
-# gitlab.com/fdroid/fdroiddata, submitted as a merge request. Provisional until the app has its
-# real name, applicationId, repository URL and a tagged release. Checked with `fdroid lint` only
+# F-Droid build recipe: lives as metadata/io.github.comm0n_s3nse.jargon.yml in
+# gitlab.com/fdroid/fdroiddata, submitted as a merge request. Checked with `fdroid lint` only
 # (see docs/RELEASING.md); it has not been built on F-Droid's build server.
 Categories:
   - Keyboard & IME
   - Speech Recognizer
 License: BSD-3-Clause
 AuthorName: comm0n-s3nse
-SourceCode: https://github.com/comm0n-s3nse/falaboard
-IssueTracker: https://github.com/comm0n-s3nse/falaboard/issues
-Changelog: https://github.com/comm0n-s3nse/falaboard/blob/HEAD/FORK.md
+SourceCode: https://github.com/comm0n-s3nse/jargon
+IssueTracker: https://github.com/comm0n-s3nse/jargon/issues
+Changelog: https://github.com/comm0n-s3nse/jargon/blob/HEAD/FORK.md
 
-AutoName: Falaboard
+AutoName: Jargon
 
 RepoType: git
-Repo: https://github.com/comm0n-s3nse/falaboard.git
+Repo: https://github.com/comm0n-s3nse/jargon.git
 
 Builds:
-  - versionName: 1.1.0
-    versionCode: 5
-    commit: v1.1.0
+  - versionName: '1.0'
+    versionCode: 1
+    commit: v1.0
     subdir: app
     submodules: true
     sudo:
@@ -34,5 +33,5 @@ Builds:
 
 AutoUpdateMode: Version
 UpdateCheckMode: Tags
-CurrentVersion: 1.1.0
-CurrentVersionCode: 5
+CurrentVersion: '1.0'
+CurrentVersionCode: 1

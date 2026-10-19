@@ -1,0 +1,9 @@
+First release of Jargon, a fork of Kaiboard.
+• Text appears after you finish dictating, as one piece, with correct spacing and capitalization
+• Hold the microphone to talk; drag up to cancel; the key shows the microphone level
+• Spoken punctuation and emoji: "question mark", "smiley face", "facepalm"…
+• Hold backspace to delete word by word; drag it left to undo
+• Flick enter up to switch keyboard; hold it for settings
+• Three engines: Whisper, Parakeet (Fluid Speech Mini) and Canary 1B, which translates between 25 languages
+• Models download in the app, checksum-verified, after you confirm
+• Times itself on your phone to pick the fastest thread count

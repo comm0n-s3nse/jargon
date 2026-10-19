@@ -1,21 +1,21 @@
-A voice typing keyboard that recognizes your speech <b>on your phone</b>: what you say is never uploaded. The only thing it uses the internet for is downloading a speech model, when you tap Download. It is a fork of Kaiboard by Kai, built on whisper.cpp.
+Jargon is a voice typing keyboard that recognizes your speech <b>on your phone</b>: what you say is never uploaded. The only thing it uses the internet for is downloading a speech model, when you ask it to. It is a fork of Kaiboard by Kai, built on whisper.cpp, parakeet.cpp and transcribe.cpp.
 
-It is a dictation strip, not a full keyboard: keep your normal keyboard for typing and switch to this one when you want to talk. It comes with the Whisper tiny.en model for English.
+It is a dictation strip, not a full keyboard: keep your normal keyboard for typing and flick up on Jargon's enter key to get back to it. This copy ships without a speech model, so every byte of the app is open source; on first open it offers the models to download, from a small English one to Canary 1B, which translates between 25 European languages.
 
 <b>Dictating</b>
-• Tap the microphone to start, tap the check mark to finish. Or hold the microphone while you speak and let go to finish; drag up while holding to throw the recording away.
+• Tap the microphone to start, tap again to finish. Or hold the microphone while you speak and let go to finish; drag up while holding to throw the recording away.
 • Text appears only when you finish, as one piece, with the spacing and capitalization the sentence around the cursor needs.
+• Say "question mark", "period" or "comma" at the start or end and the mark is typed. Say "smiley face", "facepalm" or "thumbs up" and the emoji is.
 • Highlight text and dictate to replace it.
-• Silence at the start and end of a recording is trimmed, so Whisper is not handed silence to invent words from.
 
 <b>Editing</b>
-• Backspace deletes a character, or holds to repeat and then delete a word at a time.
-• Drag backspace to the left to undo, even a long run of deleted text.
-• Enter sends, searches or adds a new line, whichever the field expects. Pull it up to open settings.
+• Backspace deletes a character, or holds to repeat and then delete a word at a time. Drag it left to undo.
+• Enter sends, searches or adds a new line, whichever the field expects. Flick it up to switch keyboard; hold it to open settings.
 
 <b>Models and languages</b>
-• Download a recommended model from the settings screen, or add your own: other Whisper models (the multilingual ones understand many languages, and can translate) or Parakeet models in .gguf format. Only one is kept in memory at a time.
-• The keyboard times itself once on your phone and picks the fastest thread count, which is often fewer than all of your cores.
+• Download a recommended model from the settings screen, or add your own: Whisper models (the multilingual ones understand many languages), Parakeet or Canary models in .gguf format. Only one is kept in memory at a time.
+• With Canary, slide left on the microphone to pick the language to write in.
+• The keyboard times itself once on your phone and picks the fastest thread count.
 
 <b>Credits</b>
-Built on Kaiboard by Kai (kaisoapbox), whisper.cpp and Whisper by OpenAI. The About screen lists everything with its license.
+Built on Kaiboard by Kai (kaisoapbox), whisper.cpp, parakeet.cpp, transcribe.cpp and the model authors. The About screen lists everything with its license.

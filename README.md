@@ -1,16 +1,22 @@
-# Kaiboard
+# Jargon
+
+A voice typing keyboard for Android that recognizes your speech **on your phone** and can translate
+it. Nothing you say leaves the device; the only thing the app uses the internet for is downloading a
+speech model, after you confirm. Three engines (whisper.cpp, parakeet.cpp, transcribe.cpp), models
+from Whisper Tiny to Canary 1B, spoken punctuation and emoji, and a strip of three keys that do a
+lot: hold, flick and drag.
 
 > **This is a fork** of [Kaiboard](https://github.com/kaisoapbox/kaiboard) by Kai (kaisoapbox),
-> which is where the keyboard, its interface and the idea come from. This version adds a faster and
-> more careful dictation flow, a choice of speech models and languages, and a second engine. See
-> [FORK.md](FORK.md) for what changed and the credits, [docs/RELEASING.md](docs/RELEASING.md) for
-> where it stands. Build it with `scripts/fetch-model.sh` and the steps in FORK.md. The links
-> below are to Kai's original app.
+> which is where the keyboard, its interface and the idea come from. See [FORK.md](FORK.md) for
+> what changed and the credits, and [docs/RELEASING.md](docs/RELEASING.md) for how it ships.
+> Published by [comm0n-s3nse](https://github.com/comm0n-s3nse).
 
+**Get it:** GitHub Releases (APK with the small English model inside), and F-Droid once the
+recipe is accepted (that copy downloads a model on first open).
 
-<a href="https://play.google.com/store/apps/details?id=kaizo.co.WhisperVoiceKeyboard">
-  <img src="https://cdn.rawgit.com/steverichey/google-play-badge-svg/master/img/en_get.svg" width="25%" alt="Download Kaiboard from Google Play">
-</a>
+**Build it:** run `scripts/fetch-model.sh` to bundle the built-in model (skip it for the F-Droid
+shape), then the steps in FORK.md.
+
 
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/kaisoapbox)
 

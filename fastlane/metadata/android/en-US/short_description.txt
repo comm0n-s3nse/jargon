@@ -1,1 +1,1 @@
-Private voice typing keyboard. Speech is recognized on your phone.
+Private voice typing and translation. Speech is recognized on your phone.

@@ -5,7 +5,7 @@ copyright 2024 kaisoapbox), started from upstream commit `0a75d47`. The fork's c
 here against that commit. Whisper stays the speech engine and `ggml-tiny.en` stays the default
 model; nothing here adds a second engine.
 
-The debug build installs as `kaizo.co.WhisperVoiceKeyboard.fork` and is labeled "Kaiboard Fork", so
+The app is `io.github.comm0n_s3nse.jargon`; the debug build installs as `io.github.comm0n_s3nse.jargon.debug` and is labeled "Jargon (debug)", so
 it can sit next to the Play or F-Droid app.
 
 ## Bugs fixed in upstream code
