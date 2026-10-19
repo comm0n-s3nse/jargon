@@ -1,5 +1,11 @@
 package kaizo.co.WhisperVoiceKeyboard
 
+import kotlin.math.sin
+import kotlin.math.PI
+import kotlinx.coroutines.delay
+import kaizo.co.WhisperVoiceKeyboard.tune.pickThreads
+import kaizo.co.WhisperVoiceKeyboard.tune.Threads
+import android.os.SystemClock
 import android.content.Context
 import android.content.SharedPreferences
 import android.inputmethodservice.InputMethodService
@@ -71,6 +77,8 @@ class VoiceKeyboardInputMethodService : InputMethodService(), LifecycleOwner,
             edits.clear()
             runEdit = null
         }
+        // picks up "Auto" being tapped in settings while the service is already running
+        scope.launch { if (canTranscribe && !isRecording) ensureTuned() }
     }
 
     // an edit only stays undoable while the text around the cursor is still what it left,
@@ -146,6 +154,12 @@ class VoiceKeyboardInputMethodService : InputMethodService(), LifecycleOwner,
     private var samplesPath: File? = null
     private var sharedPref: SharedPreferences? = null
     private val maxThreads = Runtime.getRuntime().availableProcessors()
+    // shown on the mic button while the keyboard times itself ("Tuning… 2/6")
+    var statusText by mutableStateOf<String?>(null)
+        private set
+    private var tuning = false
+    private var modelName = ""
+
     private var leading: String = ""
     private var trailing: String = ""
 
@@ -243,6 +257,65 @@ class VoiceKeyboardInputMethodService : InputMethodService(), LifecycleOwner,
         }
     }
 
+    private fun threads(): Int = sharedPref?.let {
+        Threads.effective(it, application.getString(R.string.num_threads), maxThreads)
+    } ?: maxThreads
+
+    // 3 s of speech-like sound; whisper's cost barely depends on the content
+    private fun tuningSample(): FloatArray {
+        val rng = java.util.Random(7)
+        return FloatArray(16000 * 3) { i ->
+            val t = i / 16000f
+            val syllables = 0.5f + 0.5f * sin(2 * PI * 3 * t).toFloat()
+            syllables * (0.15f * sin(2 * PI * 180 * t).toFloat() +
+                0.08f * sin(2 * PI * 540 * t).toFloat()) + 0.01f * (rng.nextFloat() - 0.5f)
+        }
+    }
+
+    // First use on a phone (or after "Auto" in settings): time a few thread counts and keep
+    // the fastest. The mic button says what is happening while it runs.
+    private suspend fun ensureTuned() {
+        val prefs = sharedPref ?: return
+        val ctx = whisperContext ?: return
+        if (tuning || !Threads.needsTuning(prefs, application.getString(R.string.num_threads), modelName)) return
+        tuning = true
+        canTranscribe = false
+        try {
+            val sample = tuningSample()
+            val started = SystemClock.elapsedRealtime()
+            statusText = getString(R.string.tuning_start)
+            ctx.transcribeData(sample, false, 4) // warm-up, so the first trial is not penalized
+            val best = pickThreads(
+                maxThreads,
+                { done, total -> statusText = getString(R.string.tuning_progress, done, total) }
+            ) { t ->
+                var fastest = Long.MAX_VALUE
+                for (run in 1..2) {
+                    val t0 = SystemClock.elapsedRealtime()
+                    ctx.transcribeData(sample, false, t)
+                    val ms = SystemClock.elapsedRealtime() - t0
+                    fastest = minOf(fastest, ms)
+                    if (ms > 2000) break // slow phone: one run per setting keeps the wait short
+                }
+                printMessage("tune: $t threads -> $fastest ms\n")
+                fastest
+            }
+            prefs.edit().putInt(Threads.TUNED, best).putString(Threads.TUNED_MODEL, modelName).apply()
+            printMessage("Tuned to $best threads in ${SystemClock.elapsedRealtime() - started} ms\n")
+            statusText = getString(R.string.tuned_done, best)
+            scope.launch {
+                delay(3000)
+                if (!tuning) statusText = null
+            }
+        } catch (e: Exception) {
+            Log.w(LOG_TAG, e)
+            statusText = null
+        } finally {
+            tuning = false
+            canTranscribe = true
+        }
+    }
+
     private fun checkBoolPref(resource: Int): Boolean? {
         return sharedPref?.getBoolean(
             application.getString(resource), false
@@ -258,6 +331,7 @@ class VoiceKeyboardInputMethodService : InputMethodService(), LifecycleOwner,
         try {
             copyAssets()
             loadBaseModel()
+            ensureTuned()
             canTranscribe = true
         } catch (e: Exception) {
             Log.w(LOG_TAG, e)
@@ -283,6 +357,7 @@ class VoiceKeyboardInputMethodService : InputMethodService(), LifecycleOwner,
         if (models != null) {
             whisperContext =
                 WhisperContext.createContextFromAsset(application.assets, "models/" + models[0])
+            modelName = models[0]
             printMessage("Loaded model ${models[0]}.\n")
         } else {
             throw Exception("no models found")
@@ -318,11 +393,10 @@ class VoiceKeyboardInputMethodService : InputMethodService(), LifecycleOwner,
     private suspend fun transcribeAudio(data: FloatArray) {
         try {
             printMessage("${data.size / (16000 / 1000)} ms\n")
-            val nThreads =
-                sharedPref?.getInt(application.getString(R.string.num_threads), maxThreads)
+            val nThreads = threads()
             printMessage("Transcribing data...\n")
             val start = System.currentTimeMillis()
-            var text = whisperContext?.transcribeData(data, false, nThreads ?: maxThreads)?.trim()
+            var text = whisperContext?.transcribeData(data, false, nThreads)?.trim()
             printMessage(text.toString())
             // remove special tokens like [MUSIC] or [BLANK_AUDIO]
             // bizarrely, it sometimes also does *music* or (music) so handle these case-s too

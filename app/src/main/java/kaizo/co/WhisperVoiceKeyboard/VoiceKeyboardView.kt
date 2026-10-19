@@ -105,6 +105,7 @@ class VoiceKeyboardView(private val service: VoiceKeyboardInputMethodService) :
                 RecordButton(
                     enabled = service.canTranscribe,
                     isRecording = service.isRecording,
+                    status = service.statusText,
                     onClick = service::toggleRecord,
                     onCancel = service::cancelRecord,
                     onHoldChange = { micHeld = it },
@@ -246,8 +247,8 @@ private fun DeleteButton(
 // button is in hold mode and shows a thick hollow outline.
 @Composable
 private fun RecordButton(
-    enabled: Boolean, isRecording: Boolean, onClick: () -> Unit, onCancel: () -> Unit,
-    onHoldChange: (Boolean) -> Unit, modifier: Modifier, shape: Shape
+    enabled: Boolean, isRecording: Boolean, status: String?, onClick: () -> Unit,
+    onCancel: () -> Unit, onHoldChange: (Boolean) -> Unit, modifier: Modifier, shape: Shape
 ) {
     // handle showing Record on the first render and not Transcribing...
     var firstRender by remember { mutableStateOf(true) }
@@ -345,7 +346,9 @@ private fun RecordButton(
             },
         shape = shape
     ) {
-        if (!enabled && firstRender) {
+        if (status != null && !isRecording) {
+            Text(status, fontSize = 16.sp)
+        } else if (!enabled && firstRender) {
             Icon(
                 Icons.Outlined.KeyboardVoice, stringResource(R.string.start_recording)
             )

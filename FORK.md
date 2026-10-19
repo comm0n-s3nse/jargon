@@ -49,4 +49,23 @@ it can sit next to the Play or F-Droid app.
 - **Sizes in millimeters:** button height and the dead space under the row follow the phone's
   physical DPI, so Android's "display size" setting cannot shrink the keyboard into the nav bar.
 
+- **Thread auto-tune:** the keyboard times a few thread counts on first use and keeps the fastest
+  (8 threads measured up to 3x slower than 6 on one phone). The mic button shows progress, settings
+  shows the result, and "Auto" re-tunes. A value you set by hand always wins.
+
 See `KAIBOARD.md` in the parent project for the plan these came from.
+
+## Credits
+
+Used today:
+
+- **Kaiboard** by [Kai / kaisoapbox](https://github.com/kaisoapbox/kaiboard), BSD 3-Clause. This
+  project is a fork of it and exists because of it: the keyboard, the whisper.cpp integration,
+  the interface and the idea are Kai's.
+- **whisper.cpp** by Georgi Gerganov and contributors, MIT, and **Whisper** by OpenAI, MIT.
+
+Under evaluation, not shipped (listed so credit is not forgotten if they are):
+
+- **parakeet.cpp** by its authors, MIT.
+- **Fluid Speech Mini** by FluidVoice Labs, CC BY 4.0, built on NVIDIA Parakeet TDT 0.6B v3 (CC BY 4.0).
+  CC BY 4.0 requires crediting it as "Fluid Speech Mini by FluidVoice".

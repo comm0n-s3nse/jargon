@@ -30,4 +30,11 @@
     <string name="pause_media_option">Auto-pause Media</string>
     <string name="pause_media_description">Pauses media when recording.</string>
     <string name="casual_description">lowercase &amp; no ending ./,/;</string>
+    <string name="tuning_start">Tuning speed…</string>
+    <string name="tuning_progress">Tuning… %1$d/%2$d</string>
+    <string name="tuned_done">Tuned: %1$d threads</string>
+    <string name="threads_auto">Auto-tuned for this phone: %1$d threads</string>
+    <string name="threads_manual">Set by you. Tap Auto to let the keyboard time itself again.</string>
+    <string name="threads_pending">Not tuned yet. The keyboard times itself the next time it opens (a few seconds).</string>
+    <string name="threads_reset">Auto</string>
 </resources>

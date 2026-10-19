@@ -1,5 +1,6 @@
 package kaizo.co.WhisperVoiceKeyboard.ui.main
 
+import kaizo.co.WhisperVoiceKeyboard.tune.Threads
 import android.app.Application
 import android.content.Context
 import android.media.MediaPlayer
@@ -84,7 +85,8 @@ class MainScreenViewModel(private val application: Application) : ViewModel() {
     }
 
     fun benchmark() = viewModelScope.launch {
-        val nThreads = sharedPref.getInt(application.getString(R.string.num_threads), maxThreads)
+        val nThreads =
+            Threads.effective(sharedPref, application.getString(R.string.num_threads), maxThreads)
         runBenchmark(nThreads)
     }
 
@@ -123,7 +125,7 @@ class MainScreenViewModel(private val application: Application) : ViewModel() {
 
     private suspend fun transcribeAudio(data: FloatArray) {
         val nThreads =
-            sharedPref.getInt(application.getString(R.string.num_threads), maxThreads)
+            Threads.effective(sharedPref, application.getString(R.string.num_threads), maxThreads)
         printMessage("Transcribing data...\n")
         val start = System.currentTimeMillis()
         val text = whisperContext?.transcribeData(data, numThreads = nThreads)

@@ -1,5 +1,9 @@
 package kaizo.co.WhisperVoiceKeyboard.ui.main
 
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.material3.TextButton
+import androidx.compose.foundation.layout.Column
+import kaizo.co.WhisperVoiceKeyboard.tune.Threads
 import android.content.Context
 import android.content.Intent
 import android.provider.Settings
@@ -77,10 +81,10 @@ private fun MainScreen(
     val casualMode = stringResource(R.string.casual_mode)
     val pauseMediaStr = stringResource(R.string.pause_media)
     var nThreads by remember {
-        mutableFloatStateOf(
-            sharedPref.getInt(threadsStr, maxThreads).toFloat()
-        )
+        mutableFloatStateOf(Threads.effective(sharedPref, threadsStr, maxThreads).toFloat())
     }
+    var threadsManual by remember { mutableStateOf(sharedPref.contains(threadsStr)) }
+    var tunedThreads by remember { mutableIntStateOf(sharedPref.getInt(Threads.TUNED, 0)) }
     var lowercase by remember {
         mutableStateOf(
             sharedPref.getBoolean(casualMode, false)
@@ -115,30 +119,60 @@ private fun MainScreen(
                     headlineContent = { Text(stringResource(R.string.num_threads_option)) },
                     leadingContent = { Icon(Icons.Outlined.Memory, null) },
                     supportingContent = {
-                        Row(
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Slider(
-                                value = nThreads,
-                                onValueChange = { nThreads = it },
-                                onValueChangeFinished = {
+                        Column {
+                            Row(
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Slider(
+                                    value = nThreads,
+                                    onValueChange = { nThreads = it },
+                                    onValueChangeFinished = {
+                                        with(sharedPref.edit()) {
+                                            putInt(threadsStr, nThreads.toInt())
+                                            apply()
+                                        }
+                                        threadsManual = true
+                                    },
+                                    // subtract 2 bc the start and end count as steps
+                                    steps = maxThreads - 2,
+                                    valueRange = 1f..maxThreads.toFloat(),
+                                    modifier = Modifier.weight(1f, true)
+                                )
+                                Text(
+                                    nThreads.toInt().toString(),
+                                    modifier = Modifier.padding(4.dp),
+                                    fontSize = 16.sp,
+                                )
+                            }
+                            Row(
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    when {
+                                        threadsManual -> stringResource(R.string.threads_manual)
+                                        tunedThreads > 0 ->
+                                            stringResource(R.string.threads_auto, tunedThreads)
+                                        else -> stringResource(R.string.threads_pending)
+                                    },
+                                    fontSize = 12.sp,
+                                    modifier = Modifier.weight(1f, true)
+                                )
+                                TextButton(onClick = {
                                     with(sharedPref.edit()) {
-                                        putInt(threadsStr, nThreads.toInt())
+                                        remove(threadsStr)
+                                        remove(Threads.TUNED)
+                                        remove(Threads.TUNED_MODEL)
                                         apply()
                                     }
-                                },
-                                // subtract 2 bc the start and end count as steps
-                                steps = maxThreads - 2,
-                                valueRange = 1f..maxThreads.toFloat(),
-                                modifier = Modifier.weight(1f, true)
-                            )
-                            Text(
-                                nThreads.toInt().toString(),
-                                modifier = Modifier.padding(4.dp),
-                                fontSize = 16.sp,
-                            )
+                                    threadsManual = false
+                                    tunedThreads = 0
+                                    nThreads = Threads.effective(sharedPref, threadsStr, maxThreads).toFloat()
+                                }) { Text(stringResource(R.string.threads_reset)) }
+                            }
                         }
                     },
                     modifier = Modifier
