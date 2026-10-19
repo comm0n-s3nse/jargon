@@ -1,14 +1,21 @@
 package kaizo.co.WhisperVoiceKeyboard
 
 import android.annotation.SuppressLint
-import android.os.Handler
-import android.os.Looper
-import android.view.KeyEvent
+import android.os.SystemClock
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.PressInteraction
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -19,25 +26,65 @@ import androidx.compose.material.icons.outlined.Clear
 import androidx.compose.material.icons.outlined.KeyboardVoice
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.AbstractComposeView
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kaizo.co.WhisperVoiceKeyboard.ui.theme.KaiboardTheme
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
+import kotlin.math.hypot
+import kotlin.math.max
+import kotlin.math.roundToInt
 
+// a press shorter than this is a tap, longer is a hold (word-delete, press-to-talk)
+private const val HOLD_GATE_MS = 240L
+
+// Sizes that matter to a thumb are in millimeters, not dp. A phone's "display size" setting
+// rescales dp, which shrank the keyboard and pushed it against the system nav buttons.
+private const val BUTTON_HEIGHT_MM = 6.5f
+private const val DEAD_SPACE_MM = 2.7f
+private const val UNDO_DRAG_MM = 11f
+private const val UNDO_DRAG_MAX_MM = 22f
+private const val CANCEL_DRAG_MM = 10f
+
+private val CancelRed = Color(0xFFD32F2F)
+
+@Composable
+private fun mmToPx(mm: Float): Float =
+    mm / 25.4f * LocalContext.current.resources.displayMetrics.ydpi
+
+@Composable
+private fun mmToDp(mm: Float): Dp = with(LocalDensity.current) { mmToPx(mm).toDp() }
 
 @SuppressLint("ViewConstructor")
 class VoiceKeyboardView(private val service: VoiceKeyboardInputMethodService) :
@@ -50,28 +97,40 @@ class VoiceKeyboardView(private val service: VoiceKeyboardInputMethodService) :
     @Composable
     override fun Content() {
         KaiboardTheme {
-            Row {
+            val buttonHeight = mmToDp(BUTTON_HEIGHT_MM)
+            // true while a finger is down on a mic press that started the recording; the
+            // cancel button would only get in the way, since dragging up cancels a hold
+            var micHeld by remember { mutableStateOf(false) }
+            Row(modifier = Modifier.padding(bottom = mmToDp(DEAD_SPACE_MM))) {
                 RecordButton(
                     enabled = service.canTranscribe,
                     isRecording = service.isRecording,
                     onClick = service::toggleRecord,
+                    onCancel = service::cancelRecord,
+                    onHoldChange = { micHeld = it },
                     modifier = Modifier
                         .weight(1f, true)
-                        .padding(padding),
+                        .padding(padding)
+                        .heightIn(min = buttonHeight),
                     shape = shape,
                 )
-                if (service.isRecording) {
+                if (service.isRecording && !micHeld) {
                     CancelButton(
                         onClick = service::cancelRecord,
                         modifier = Modifier
                             .padding(padding)
-                            .defaultMinSize(minWidth = minSize),
+                            .defaultMinSize(minWidth = minSize)
+                            .heightIn(min = buttonHeight),
                         shape = shape,
                         contentPadding = PaddingValues(horizontal = contentPad),
                     )
                 }
                 DeleteButton(
-                    onClick = { service.sendKeyPress(KeyEvent.KEYCODE_DEL) },
+                    onPress = service::beginDeleteRun,
+                    onDelete = service::backspace,
+                    onDeleteWord = service::deleteWord,
+                    onUndo = service::undoAfterBackspaceGesture,
+                    buttonHeight = buttonHeight,
                     modifier = Modifier
                         .padding(padding)
                         .defaultMinSize(minWidth = minSize),
@@ -79,12 +138,11 @@ class VoiceKeyboardView(private val service: VoiceKeyboardInputMethodService) :
                     contentPadding = PaddingValues(horizontal = contentPad),
                 )
                 Button(
-                    onClick = {
-                        service.sendKeyPress(KeyEvent.KEYCODE_ENTER)
-                    },
+                    onClick = service::enter,
                     modifier = Modifier
                         .padding(padding)
-                        .defaultMinSize(minWidth = minSize),
+                        .defaultMinSize(minWidth = minSize)
+                        .heightIn(min = buttonHeight),
                     shape = shape,
                     contentPadding = PaddingValues(horizontal = contentPad),
                 ) {
@@ -92,21 +150,6 @@ class VoiceKeyboardView(private val service: VoiceKeyboardInputMethodService) :
                         Icons.AutoMirrored.Outlined.KeyboardReturn,
                         stringResource(R.string.return_button)
                     )
-                }
-                if (service.shouldRenderSwitcher()) {
-                    Button(
-                        onClick = { service.switchKeyboard() },
-                        modifier = Modifier
-                            .padding(padding)
-                            .defaultMinSize(minWidth = minSize),
-                        contentPadding = PaddingValues(horizontal = contentPad),
-                        shape = shape
-                    ) {
-                        Icon(
-                            painterResource(R.drawable.keyboard_previous_language),
-                            stringResource(R.string.switch_keyboard_button)
-                        )
-                    }
                 }
             }
         }
@@ -122,77 +165,186 @@ private fun CancelButton(
     }
 }
 
+// Tap deletes one character; holding repeats characters, then speeds up to whole words.
+// Dragging left (toward the mic, one direction only) undoes: red fills in behind the button
+// as it leaves, and letting go past the line undoes the previous edit.
 @Composable
 private fun DeleteButton(
-    onClick: () -> Unit, modifier: Modifier, shape: Shape, contentPadding: PaddingValues
+    onPress: () -> Unit, onDelete: () -> Unit, onDeleteWord: () -> Unit,
+    onUndo: (repeated: Boolean) -> Unit, buttonHeight: Dp,
+    modifier: Modifier, shape: Shape, contentPadding: PaddingValues
 ) {
-    var mHandler: Handler? = null
-    val mAction: Runnable = object : Runnable {
-        override fun run() {
-            onClick()
-            mHandler!!.postDelayed(this, 50)
-        }
-    }
-
     val interactionSource = remember { MutableInteractionSource() }
+    val undoDistancePx = mmToPx(UNDO_DRAG_MM)
+    val maxDragPx = mmToPx(UNDO_DRAG_MAX_MM)
+    var dragX by remember { mutableFloatStateOf(0f) }
+    var deletes by remember { mutableIntStateOf(0) }
     LaunchedEffect(interactionSource) {
+        // collectLatest cancels the hold loop when the release arrives
         interactionSource.interactions.collectLatest { interaction ->
-            when (interaction) {
-                is PressInteraction.Press -> {
-                    if (mHandler != null) return@collectLatest
-                    mHandler = Handler(Looper.getMainLooper())
-                    mHandler!!.post(mAction)
-                }
-
-                is PressInteraction.Release -> {
-                    if (mHandler == null) return@collectLatest
-                    mHandler!!.removeCallbacks(mAction)
-                    mHandler = null
+            if (interaction is PressInteraction.Press) {
+                onPress()
+                deletes = 1
+                onDelete()
+                delay(HOLD_GATE_MS)
+                var repeats = 0
+                while (true) {
+                    deletes++
+                    if (repeats < 10) {
+                        onDelete()
+                        delay(50)
+                    } else {
+                        onDeleteWord()
+                        delay(200)
+                    }
+                    repeats++
                 }
             }
         }
     }
-    Button(
-        onClick = {},
-        interactionSource = interactionSource,
-        modifier = modifier,
-        shape = shape,
-        contentPadding = contentPadding
+    val progress = (-dragX / undoDistancePx).coerceIn(0f, 1f)
+    Box(
+        modifier = modifier.drawBehind {
+            // what the button leaves behind: red that deepens as the undo gets closer
+            if (progress > 0f) {
+                drawRoundRect(
+                    CancelRed.copy(alpha = 0.2f + 0.7f * progress),
+                    cornerRadius = CornerRadius(8.dp.toPx()),
+                )
+            }
+        }
     ) {
-        Icon(Icons.AutoMirrored.Outlined.Backspace, stringResource(R.string.delete_button))
+        Button(
+            onClick = {},
+            interactionSource = interactionSource,
+            modifier = Modifier
+                .heightIn(min = buttonHeight)
+                .offset { IntOffset(dragX.roundToInt(), 0) }
+                .pointerInput(Unit) {
+                    detectHorizontalDragGestures(
+                        onDragEnd = {
+                            if (dragX <= -undoDistancePx) onUndo(deletes > 1)
+                            dragX = 0f
+                        },
+                        onDragCancel = { dragX = 0f },
+                    ) { change, amount ->
+                        change.consume()
+                        dragX = (dragX + amount).coerceIn(-maxDragPx, 0f)
+                    }
+                },
+            shape = shape,
+            contentPadding = contentPadding
+        ) {
+            Icon(Icons.AutoMirrored.Outlined.Backspace, stringResource(R.string.delete_button))
+        }
     }
 }
 
+// Tap: start now, tap again to stop. Hold past the gate: stop and transcribe on release.
+// Hold and drag up about a centimeter: release throws the recording away.
+// While held, a ring grows from the thumb out to the button's edges; when it gets there the
+// button is in hold mode and shows a thick hollow outline.
 @Composable
 private fun RecordButton(
-    enabled: Boolean, isRecording: Boolean, onClick: () -> Unit, modifier: Modifier, shape: Shape
+    enabled: Boolean, isRecording: Boolean, onClick: () -> Unit, onCancel: () -> Unit,
+    onHoldChange: (Boolean) -> Unit, modifier: Modifier, shape: Shape
 ) {
     // handle showing Record on the first render and not Transcribing...
     var firstRender by remember { mutableStateOf(true) }
     // handle stopwatch timer
     var seconds by remember { mutableIntStateOf(0) }
-    var handler: Handler? by remember { mutableStateOf(null) }
-    var start by remember { mutableLongStateOf(0) }
-
-    val runnable: Runnable = object : Runnable {
-        override fun run() {
-            seconds = ((System.currentTimeMillis() - start) / 1000).toInt()
-            handler?.postDelayed(this, 1_000)
+    LaunchedEffect(isRecording) {
+        if (isRecording) {
+            val startedAt = SystemClock.elapsedRealtime()
+            seconds = 0
+            while (true) {
+                delay(250)
+                seconds = ((SystemClock.elapsedRealtime() - startedAt) / 1000).toInt()
+            }
         }
     }
 
-    Button(onClick = {
-        if (!isRecording) {
-            start = System.currentTimeMillis()
-            seconds = 0
-            handler = Handler(Looper.getMainLooper())
-            handler!!.postDelayed(runnable, 1_000)
-        } else {
-            handler!!.removeCallbacks(runnable)
-            handler = null
-        }
-        onClick()
-    }, enabled = enabled, modifier = modifier, shape = shape) {
+    val recordingNow by rememberUpdatedState(isRecording)
+    val enabledNow by rememberUpdatedState(enabled)
+    val cancelDistancePx = mmToPx(CANCEL_DRAG_MM)
+    val ringColor = MaterialTheme.colorScheme.onPrimary
+
+    var touch by remember { mutableStateOf<Offset?>(null) }
+    var holdMode by remember { mutableStateOf(false) }
+    var cancelArmed by remember { mutableStateOf(false) }
+    val ring = remember { Animatable(0f) }
+    val uiScope = rememberCoroutineScope()
+
+    Button(
+        onClick = {}, enabled = enabled,
+        modifier = modifier
+            .clip(shape)
+            .drawWithContent {
+                drawContent()
+                val p = touch ?: return@drawWithContent
+                val color = if (cancelArmed) CancelRed else ringColor
+                if (cancelArmed) drawRect(CancelRed.copy(alpha = 0.35f))
+                if (!holdMode) {
+                    val reach = hypot(max(p.x, size.width - p.x), max(p.y, size.height - p.y))
+                    drawCircle(
+                        color.copy(alpha = 0.85f), radius = ring.value * reach, center = p,
+                        style = Stroke(width = 2.5.dp.toPx())
+                    )
+                } else {
+                    // hollow thick outline, fading off toward the middle
+                    val corner = CornerRadius(8.dp.toPx())
+                    for ((width, alpha) in listOf(14f to 0.2f, 10f to 0.35f, 6f to 0.95f)) {
+                        val w = width.dp.toPx()
+                        drawRoundRect(
+                            color.copy(alpha = alpha), cornerRadius = corner,
+                            topLeft = Offset(w / 2, w / 2),
+                            size = Size(size.width - w, size.height - w),
+                            style = Stroke(width = w)
+                        )
+                    }
+                }
+            }
+            .pointerInput(Unit) {
+                awaitEachGesture {
+                    // observe only (initial pass, nothing consumed), so the button keeps its own press look
+                    val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                    if (!enabledNow) return@awaitEachGesture
+                    val startedOnPress = !recordingNow
+                    val pressedAt = SystemClock.uptimeMillis()
+                    if (startedOnPress) {
+                        onClick()
+                        onHoldChange(true)
+                    }
+                    touch = down.position
+                    holdMode = false
+                    cancelArmed = false
+                    val grow = uiScope.launch {
+                        ring.snapTo(0f)
+                        ring.animateTo(1f, tween(HOLD_GATE_MS.toInt(), easing = LinearEasing))
+                        holdMode = true
+                    }
+                    var dragUp = 0f
+                    while (true) {
+                        val event = awaitPointerEvent(PointerEventPass.Initial)
+                        val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                        dragUp = (down.position.y - change.position.y).coerceAtLeast(0f)
+                        cancelArmed = startedOnPress && dragUp >= cancelDistancePx
+                        if (!change.pressed) break
+                    }
+                    grow.cancel()
+                    val held = SystemClock.uptimeMillis() - pressedAt >= HOLD_GATE_MS
+                    when {
+                        startedOnPress && dragUp >= cancelDistancePx -> onCancel()
+                        !startedOnPress || held -> onClick()
+                    }
+                    touch = null
+                    holdMode = false
+                    cancelArmed = false
+                    onHoldChange(false)
+                }
+            },
+        shape = shape
+    ) {
         if (!enabled && firstRender) {
             Icon(
                 Icons.Outlined.KeyboardVoice, stringResource(R.string.start_recording)
