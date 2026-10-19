@@ -1,5 +1,6 @@
 package kaizo.co.WhisperVoiceKeyboard
 
+import android.content.Intent
 import kaizo.co.WhisperVoiceKeyboard.models.languageFor
 import kaizo.co.WhisperVoiceKeyboard.models.ModelStore
 import kaizo.co.WhisperVoiceKeyboard.models.ModelEntry
@@ -628,6 +629,11 @@ class VoiceKeyboardInputMethodService : InputMethodService(), LifecycleOwner,
             ic.deleteSurroundingTextInCodePoints(before.codePointCount(i, before.length), 0)
             recordDeletion(before.substring(i))
         }
+    }
+
+    // pulled up on enter: the settings screen is the app's launcher activity
+    fun openSettings() {
+        startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
     }
 
     fun enter() {

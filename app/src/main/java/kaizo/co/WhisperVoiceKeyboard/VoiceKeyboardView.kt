@@ -1,5 +1,13 @@
 package kaizo.co.WhisperVoiceKeyboard
 
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.Alignment
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import android.annotation.SuppressLint
 import android.os.SystemClock
 import androidx.compose.animation.core.Animatable
@@ -77,6 +85,12 @@ private const val UNDO_DRAG_MM = 11f
 private const val UNDO_DRAG_MAX_MM = 22f
 private const val CANCEL_DRAG_MM = 10f
 
+// backspace, enter and the cancel key share one width, so they cannot drift apart
+private const val SIDE_KEY_WIDTH_MM = 8f
+
+// how far to pull enter up before releasing opens settings
+private const val SETTINGS_DRAG_MM = 8f
+
 private val CancelRed = Color(0xFFD32F2F)
 
 @Composable
@@ -98,6 +112,7 @@ class VoiceKeyboardView(private val service: VoiceKeyboardInputMethodService) :
     override fun Content() {
         KaiboardTheme {
             val buttonHeight = mmToDp(BUTTON_HEIGHT_MM)
+            val keyWidth = mmToDp(SIDE_KEY_WIDTH_MM)
             // true while a finger is down on a mic press that started the recording; the
             // cancel button would only get in the way, since dragging up cancels a hold
             var micHeld by remember { mutableStateOf(false) }
@@ -120,7 +135,7 @@ class VoiceKeyboardView(private val service: VoiceKeyboardInputMethodService) :
                         onClick = service::cancelRecord,
                         modifier = Modifier
                             .padding(padding)
-                            .defaultMinSize(minWidth = minSize)
+                            .width(keyWidth)
                             .heightIn(min = buttonHeight),
                         shape = shape,
                         contentPadding = PaddingValues(horizontal = contentPad),
@@ -132,26 +147,20 @@ class VoiceKeyboardView(private val service: VoiceKeyboardInputMethodService) :
                     onDeleteWord = service::deleteWord,
                     onUndo = service::undoAfterBackspaceGesture,
                     buttonHeight = buttonHeight,
-                    modifier = Modifier
-                        .padding(padding)
-                        .defaultMinSize(minWidth = minSize),
+                    keyWidth = keyWidth,
+                    modifier = Modifier.padding(padding),
                     shape = shape,
                     contentPadding = PaddingValues(horizontal = contentPad),
                 )
-                Button(
-                    onClick = service::enter,
-                    modifier = Modifier
-                        .padding(padding)
-                        .defaultMinSize(minWidth = minSize)
-                        .heightIn(min = buttonHeight),
+                EnterButton(
+                    onEnter = service::enter,
+                    onSettings = service::openSettings,
+                    buttonHeight = buttonHeight,
+                    keyWidth = keyWidth,
+                    modifier = Modifier.padding(padding),
                     shape = shape,
                     contentPadding = PaddingValues(horizontal = contentPad),
-                ) {
-                    Icon(
-                        Icons.AutoMirrored.Outlined.KeyboardReturn,
-                        stringResource(R.string.return_button)
-                    )
-                }
+                )
             }
         }
     }
@@ -172,7 +181,7 @@ private fun CancelButton(
 @Composable
 private fun DeleteButton(
     onPress: () -> Unit, onDelete: () -> Unit, onDeleteWord: () -> Unit,
-    onUndo: (repeated: Boolean) -> Unit, buttonHeight: Dp,
+    onUndo: (repeated: Boolean) -> Unit, buttonHeight: Dp, keyWidth: Dp,
     modifier: Modifier, shape: Shape, contentPadding: PaddingValues
 ) {
     val interactionSource = remember { MutableInteractionSource() }
@@ -219,6 +228,7 @@ private fun DeleteButton(
             onClick = {},
             interactionSource = interactionSource,
             modifier = Modifier
+                .width(keyWidth)
                 .heightIn(min = buttonHeight)
                 .offset { IntOffset(dragX.roundToInt(), 0) }
                 .pointerInput(Unit) {
@@ -237,6 +247,73 @@ private fun DeleteButton(
             contentPadding = contentPadding
         ) {
             Icon(Icons.AutoMirrored.Outlined.Backspace, stringResource(R.string.delete_button))
+        }
+    }
+}
+
+// Tap: enter. Pull up: the return arrow rolls up out of the key while a gear rolls in from below;
+// past the line the key tints and ticks, and letting go opens settings. Everything stays inside
+// the key because an input method cannot draw outside its own strip.
+@Composable
+private fun EnterButton(
+    onEnter: () -> Unit, onSettings: () -> Unit, buttonHeight: Dp, keyWidth: Dp,
+    modifier: Modifier, shape: Shape, contentPadding: PaddingValues
+) {
+    val openDistancePx = mmToPx(SETTINGS_DRAG_MM)
+    val rollPx = with(LocalDensity.current) { 28.dp.toPx() }
+    val haptic = LocalHapticFeedback.current
+    var dragY by remember { mutableFloatStateOf(0f) }
+    var armed by remember { mutableStateOf(false) }
+    val progress = (-dragY / openDistancePx).coerceIn(0f, 1f)
+    Button(
+        onClick = onEnter,
+        modifier = modifier
+            .width(keyWidth)
+            .heightIn(min = buttonHeight)
+            .pointerInput(Unit) {
+                detectVerticalDragGestures(
+                    onDragEnd = {
+                        if (dragY <= -openDistancePx) onSettings()
+                        dragY = 0f
+                        armed = false
+                    },
+                    onDragCancel = {
+                        dragY = 0f
+                        armed = false
+                    },
+                ) { change, amount ->
+                    change.consume()
+                    dragY = (dragY + amount).coerceIn(-openDistancePx * 1.25f, 0f)
+                    val nowArmed = dragY <= -openDistancePx
+                    if (nowArmed && !armed) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    armed = nowArmed
+                }
+            },
+        shape = shape,
+        contentPadding = contentPadding,
+        colors = if (armed) {
+            ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary)
+        } else {
+            ButtonDefaults.buttonColors()
+        },
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Icon(
+                Icons.AutoMirrored.Outlined.KeyboardReturn,
+                stringResource(R.string.return_button),
+                modifier = Modifier.graphicsLayer {
+                    translationY = -progress * rollPx
+                    alpha = 1f - progress
+                }
+            )
+            Icon(
+                Icons.Outlined.Settings,
+                stringResource(R.string.settings_button),
+                modifier = Modifier.graphicsLayer {
+                    translationY = (1f - progress) * rollPx
+                    alpha = progress
+                }
+            )
         }
     }
 }

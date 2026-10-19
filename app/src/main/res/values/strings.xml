@@ -54,4 +54,5 @@
     <string name="model_parakeet">Parakeet, needs about 0.5 GB of RAM</string>
     <string name="model_unsupported">Not supported on this phone</string>
     <string name="language_model_decides">Chosen by the model</string>
+    <string name="settings_button">Settings</string>
 </resources>
