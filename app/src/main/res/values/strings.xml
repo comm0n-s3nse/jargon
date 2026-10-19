@@ -49,4 +49,6 @@
     <string name="model_switch_note">The keyboard switches to it the next time it opens.</string>
     <string name="language_option">Language</string>
     <string name="language_english_only">English only for this model</string>
+    <string name="behavior_header">Behavior</string>
+    <string name="test_header">Test</string>
 </resources>

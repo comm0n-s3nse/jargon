@@ -181,6 +181,7 @@ private fun MainScreen(
                 )
             }
             item { ModelSettings() }
+            item { SectionHeader(stringResource(R.string.behavior_header)) }
             item {
                 ListItem(
                     headlineContent = { Text(stringResource(R.string.pause_media_option)) },
@@ -219,6 +220,7 @@ private fun MainScreen(
                     modifier = Modifier.fillMaxWidth()
                 )
             }
+            item { SectionHeader(stringResource(R.string.test_header)) }
             item {
                 BenchmarkButton(enabled = canTranscribe, onClick = onBenchmarkTapped)
             }
