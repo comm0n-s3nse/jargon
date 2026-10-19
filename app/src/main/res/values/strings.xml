@@ -69,6 +69,7 @@
     <string name="model_checking">Checking… %1$d%%</string>
     <string name="model_download_failed">Couldn\'t download %1$s (%2$s)</string>
     <string name="model_download_done">%1$s is ready. Select it to use it.</string>
+    <string name="model_download_ready">%1$s is ready.</string>
     <string name="download_facts">Download size: %1$s. Needs %2$s of memory while it runs.</string>
     <string name="download_credit">Credit: %1$s</string>
     <string name="about_original">Original developer</string>

@@ -138,7 +138,9 @@ fun ModelSettings() {
                                     ))
                                 }
                                 models = store.list()
-                                note = context.getString(R.string.model_download_done, m.name)
+                                // the first model on an unbundled copy becomes active by itself
+                                note = if (store.active(prefs)?.fileName == m.file) context.getString(R.string.model_download_ready, m.name)
+                                else context.getString(R.string.model_download_done, m.name)
                             } catch (e: ModelImportException) {
                                 note = e.message
                             } catch (e: Exception) {
