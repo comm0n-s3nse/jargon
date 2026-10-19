@@ -5,6 +5,9 @@ Categories:
   - Keyboard & IME
   - Speech Recognizer
 License: BSD-3-Clause
+AntiFeatures:
+  NonFreeNet:
+    en-US: Downloads the speech model the user chooses from Hugging Face; nothing else uses the network.
 AuthorName: comm0n-s3nse
 SourceCode: https://github.com/comm0n-s3nse/jargon
 IssueTracker: https://github.com/comm0n-s3nse/jargon/issues
