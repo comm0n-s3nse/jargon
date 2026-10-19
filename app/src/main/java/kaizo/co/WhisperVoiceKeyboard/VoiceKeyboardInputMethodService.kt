@@ -6,6 +6,8 @@ import kaizo.co.WhisperVoiceKeyboard.models.ModelStore
 import kaizo.co.WhisperVoiceKeyboard.models.ModelEntry
 import kaizo.co.WhisperVoiceKeyboard.models.LANGUAGE_KEY
 import kaizo.co.WhisperVoiceKeyboard.models.TRANSLATE_KEY
+import kaizo.co.WhisperVoiceKeyboard.models.recentTranslateTargets
+import kaizo.co.WhisperVoiceKeyboard.models.rememberTranslateTarget
 import kaizo.co.WhisperVoiceKeyboard.models.ACTIVE_MODEL_KEY
 import kaizo.co.WhisperVoiceKeyboard.engine.WhisperEngine
 import kaizo.co.WhisperVoiceKeyboard.engine.SpeechEngine
@@ -395,6 +397,39 @@ class VoiceKeyboardInputMethodService : InputMethodService(), LifecycleOwner,
     private fun translateTo(): String? {
         if (engine?.canTranslate != true) return null
         return sharedPref?.getString(TRANSLATE_KEY, "")?.takeIf { it.isNotEmpty() }
+    }
+
+    // Quick language list for the mic's left slide: "same as spoken", then the recent targets.
+    // Empty when the model cannot translate, which turns the slide off.
+    fun quickLanguages(): List<Pair<String, String>> {
+        if (engine?.canTranslate != true) return emptyList()
+        val prefs = sharedPref ?: return emptyList()
+        return listOf("" to application.getString(R.string.quick_same)) +
+            recentTranslateTargets(prefs).map { it to it.uppercase() }
+    }
+
+    fun quickLanguageCurrent(): String = sharedPref?.getString(TRANSLATE_KEY, "").orEmpty()
+
+    fun pickQuickLanguage(code: String) {
+        val prefs = sharedPref ?: return
+        if (code.isEmpty()) prefs.edit().remove(TRANSLATE_KEY).apply()
+        else {
+            prefs.edit().putString(TRANSLATE_KEY, code).apply()
+            rememberTranslateTarget(prefs, code)
+        }
+    }
+
+    // slid left on enter: back to the keyboard used before this one
+    @Suppress("DEPRECATION")
+    fun switchToPreviousKeyboard() {
+        val switched = try {
+            switchToPreviousInputMethod() || switchToNextInputMethod(false)
+        } catch (e: Exception) {
+            false
+        }
+        if (!switched) {
+            (getSystemService(INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager).showInputMethodPicker()
+        }
     }
 
     private fun language(): String {

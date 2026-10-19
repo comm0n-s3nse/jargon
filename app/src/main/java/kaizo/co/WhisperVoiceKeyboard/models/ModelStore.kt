@@ -18,6 +18,21 @@ import java.io.File
 const val ACTIVE_MODEL_KEY = "active_model"
 const val LANGUAGE_KEY = "language"
 const val TRANSLATE_KEY = "translate_to" // empty: just transcribe
+const val RECENT_TRANSLATE_KEY = "recent_translate_to" // comma list, newest first
+val DEFAULT_RECENT_TRANSLATE = listOf("pt", "es", "fr", "de")
+const val RECENT_TRANSLATE_MAX = 4
+
+fun recentTranslateTargets(prefs: android.content.SharedPreferences): List<String> {
+    val saved = prefs.getString(RECENT_TRANSLATE_KEY, null)?.split(",")?.filter { it.isNotEmpty() }
+    return (saved ?: DEFAULT_RECENT_TRANSLATE).take(RECENT_TRANSLATE_MAX)
+}
+
+/** The language just chosen goes first in the quick list; the oldest falls off. */
+fun rememberTranslateTarget(prefs: android.content.SharedPreferences, code: String) {
+    if (code.isEmpty()) return
+    val list = (listOf(code) + recentTranslateTargets(prefs).filter { it != code }).take(RECENT_TRANSLATE_MAX)
+    prefs.edit().putString(RECENT_TRANSLATE_KEY, list.joinToString(",")).apply()
+}
 
 // what the speech language setting offers, "auto" first
 val LANGUAGES = listOf(

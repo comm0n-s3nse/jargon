@@ -42,6 +42,7 @@ import kaizo.co.WhisperVoiceKeyboard.models.CATALOG
 import kaizo.co.WhisperVoiceKeyboard.models.CatalogModel
 import kaizo.co.WhisperVoiceKeyboard.models.CpuFeatures
 import kaizo.co.WhisperVoiceKeyboard.models.LANGUAGES
+import kaizo.co.WhisperVoiceKeyboard.models.rememberTranslateTarget
 import kaizo.co.WhisperVoiceKeyboard.models.LANGUAGE_KEY
 import kaizo.co.WhisperVoiceKeyboard.models.ModelDownloader
 import kaizo.co.WhisperVoiceKeyboard.models.ModelEntry
@@ -82,6 +83,7 @@ fun ModelSettings() {
     var translateMenuOpen by remember { mutableStateOf(false) }
     var note by remember { mutableStateOf<String?>(null) }
     var importProgress by remember { mutableStateOf<String?>(null) }
+    var confirmAdd by remember { mutableStateOf(false) }
     var confirm by remember { mutableStateOf<CatalogModel?>(null) }
     var confirmInternet by remember { mutableStateOf<CatalogModel?>(null) }
     // what to show on a model's row while it downloads, or after it failed
@@ -340,6 +342,7 @@ fun ModelSettings() {
                                 DropdownMenuItem(text = { Text(label) }, onClick = {
                                     translateTo = code
                                     prefs.edit().putString(TRANSLATE_KEY, code).apply()
+                                    rememberTranslateTarget(prefs, code)
                                     translateMenuOpen = false
                                 })
                             }
@@ -352,13 +355,29 @@ fun ModelSettings() {
 
         ListItem(
             headlineContent = { Text(stringResource(R.string.model_add)) },
-            supportingContent = { Text(importProgress ?: stringResource(R.string.model_add_hint)) },
+            // slim on purpose: adding a file is for advanced use, and the details are in the dialog
+            supportingContent = importProgress?.let { { Text(it) } },
             leadingContent = { Icon(Icons.Outlined.Add, null) },
-            modifier = Modifier.clickable(enabled = importProgress == null) {
-                picker.launch(arrayOf("*/*"))
-            }
+            modifier = Modifier.clickable(enabled = importProgress == null) { confirmAdd = true }
         )
         note?.let { Text(it, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 16.dp)) }
+    }
+
+    if (confirmAdd) {
+        AlertDialog(
+            onDismissRequest = { confirmAdd = false },
+            title = { Text(stringResource(R.string.model_add)) },
+            text = { Text(stringResource(R.string.model_add_hint)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmAdd = false
+                    picker.launch(arrayOf("*/*"))
+                }) { Text(stringResource(R.string.model_add_choose)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmAdd = false }) { Text(stringResource(R.string.model_cancel)) }
+            }
+        )
     }
 
     // step 1: what the model is

@@ -6,6 +6,10 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.Alignment
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material.icons.outlined.Settings
+import kotlin.math.abs
+import androidx.compose.material.icons.outlined.Keyboard
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import android.annotation.SuppressLint
@@ -91,6 +95,8 @@ private const val SIDE_KEY_WIDTH_MM = 9f
 
 // how far to pull enter up before releasing opens settings
 private const val SETTINGS_DRAG_MM = 8f
+private const val LANGUAGE_DRAG_MM = 8f // slide left on the mic: quick language list
+private const val KEYBOARD_DRAG_MM = 8f // slide left on enter: previous keyboard
 
 private val CancelRed = Color(0xFFD32F2F)
 
@@ -132,6 +138,9 @@ class VoiceKeyboardView(private val service: VoiceKeyboardInputMethodService) :
                         service.cancelRecord()
                     },
                     onHoldChange = { micHeld = it },
+                    quickLanguages = service::quickLanguages,
+                    quickCurrent = service::quickLanguageCurrent,
+                    onQuickPick = service::pickQuickLanguage,
                     modifier = Modifier
                         .weight(1f, true)
                         .padding(padding)
@@ -163,6 +172,7 @@ class VoiceKeyboardView(private val service: VoiceKeyboardInputMethodService) :
                 EnterButton(
                     onEnter = service::enter,
                     onSettings = service::openSettings,
+                    onPreviousKeyboard = service::switchToPreviousKeyboard,
                     buttonHeight = buttonHeight,
                     keyWidth = keyWidth,
                     modifier = Modifier.padding(padding),
@@ -264,35 +274,50 @@ private fun DeleteButton(
 // the key because an input method cannot draw outside its own strip.
 @Composable
 private fun EnterButton(
-    onEnter: () -> Unit, onSettings: () -> Unit, buttonHeight: Dp, keyWidth: Dp,
+    onEnter: () -> Unit, onSettings: () -> Unit, onPreviousKeyboard: () -> Unit, buttonHeight: Dp, keyWidth: Dp,
     modifier: Modifier, shape: Shape, contentPadding: PaddingValues
 ) {
     val openDistancePx = mmToPx(SETTINGS_DRAG_MM)
+    val switchDistancePx = mmToPx(KEYBOARD_DRAG_MM)
     val rollPx = with(LocalDensity.current) { 28.dp.toPx() }
     val haptic = LocalHapticFeedback.current
     var dragY by remember { mutableFloatStateOf(0f) }
+    var dragX by remember { mutableFloatStateOf(0f) }
+    var horizontal by remember { mutableStateOf<Boolean?>(null) } // which way this drag went, decided early
     var armed by remember { mutableStateOf(false) }
-    val progress = (-dragY / openDistancePx).coerceIn(0f, 1f)
+    val up = (-dragY / openDistancePx).coerceIn(0f, 1f)
+    val left = (-dragX / switchDistancePx).coerceIn(0f, 1f)
+    fun reset() {
+        dragY = 0f
+        dragX = 0f
+        horizontal = null
+        armed = false
+    }
     Button(
         onClick = onEnter,
         modifier = modifier
             .width(keyWidth)
             .heightIn(min = buttonHeight)
             .pointerInput(Unit) {
-                detectVerticalDragGestures(
+                detectDragGestures(
+                    onDragStart = { reset() },
                     onDragEnd = {
-                        if (dragY <= -openDistancePx) onSettings()
-                        dragY = 0f
-                        armed = false
+                        if (horizontal == true && dragX <= -switchDistancePx) onPreviousKeyboard()
+                        else if (horizontal == false && dragY <= -openDistancePx) onSettings()
+                        reset()
                     },
-                    onDragCancel = {
-                        dragY = 0f
-                        armed = false
-                    },
+                    onDragCancel = { reset() },
                 ) { change, amount ->
                     change.consume()
-                    dragY = (dragY + amount).coerceIn(-openDistancePx * 1.25f, 0f)
-                    val nowArmed = dragY <= -openDistancePx
+                    if (horizontal == null && (abs(amount.x) + abs(amount.y)) > 0f) {
+                        horizontal = abs(amount.x) > abs(amount.y)
+                    }
+                    if (horizontal == true) {
+                        dragX = (dragX + amount.x).coerceIn(-switchDistancePx * 1.25f, 0f)
+                    } else {
+                        dragY = (dragY + amount.y).coerceIn(-openDistancePx * 1.25f, 0f)
+                    }
+                    val nowArmed = if (horizontal == true) dragX <= -switchDistancePx else dragY <= -openDistancePx
                     if (nowArmed && !armed) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                     armed = nowArmed
                 }
@@ -306,20 +331,30 @@ private fun EnterButton(
         },
     ) {
         Box(contentAlignment = Alignment.Center) {
+            val fade = 1f - maxOf(up, left)
             Icon(
                 Icons.AutoMirrored.Outlined.KeyboardReturn,
                 stringResource(R.string.return_button),
                 modifier = Modifier.graphicsLayer {
-                    translationY = -progress * rollPx
-                    alpha = 1f - progress
+                    translationY = -up * rollPx
+                    translationX = -left * rollPx
+                    alpha = fade
                 }
             )
             Icon(
                 Icons.Outlined.Settings,
                 stringResource(R.string.settings_button),
                 modifier = Modifier.graphicsLayer {
-                    translationY = (1f - progress) * rollPx
-                    alpha = progress
+                    translationY = (1f - up) * rollPx
+                    alpha = up
+                }
+            )
+            Icon(
+                Icons.Outlined.Keyboard,
+                stringResource(R.string.switch_keyboard_button),
+                modifier = Modifier.graphicsLayer {
+                    translationX = (1f - left) * rollPx
+                    alpha = left
                 }
             )
         }
@@ -333,7 +368,9 @@ private fun EnterButton(
 @Composable
 private fun RecordButton(
     enabled: Boolean, isRecording: Boolean, status: String?, onClick: () -> Unit,
-    onCancel: () -> Unit, onHoldChange: (Boolean) -> Unit, modifier: Modifier, shape: Shape
+    onCancel: () -> Unit, onHoldChange: (Boolean) -> Unit,
+    quickLanguages: () -> List<Pair<String, String>>, quickCurrent: () -> String,
+    onQuickPick: (String) -> Unit, modifier: Modifier, shape: Shape
 ) {
     // handle showing Record on the first render and not Transcribing...
     var firstRender by remember { mutableStateOf(true) }
@@ -353,11 +390,16 @@ private fun RecordButton(
     val recordingNow by rememberUpdatedState(isRecording)
     val enabledNow by rememberUpdatedState(enabled)
     val cancelDistancePx = mmToPx(CANCEL_DRAG_MM)
+    val languageDistancePx = mmToPx(LANGUAGE_DRAG_MM)
     val ringColor = MaterialTheme.colorScheme.onPrimary
 
     var touch by remember { mutableStateOf<Offset?>(null) }
     var holdMode by remember { mutableStateOf(false) }
     var cancelArmed by remember { mutableStateOf(false) }
+    // the quick language list, drawn inside the button while a left slide is in progress
+    var menu by remember { mutableStateOf<List<Pair<String, String>>?>(null) }
+    var menuCurrent by remember { mutableStateOf("") }
+    var hover by remember { mutableIntStateOf(-1) }
     val ring = remember { Animatable(0f) }
     val uiScope = rememberCoroutineScope()
     val haptic = LocalHapticFeedback.current
@@ -420,16 +462,55 @@ private fun RecordButton(
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                     }
                     var dragUp = 0f
+                    var lastPos = down.position
                     while (true) {
                         val event = awaitPointerEvent(PointerEventPass.Initial)
                         val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                        lastPos = change.position
                         dragUp = (down.position.y - change.position.y).coerceAtLeast(0f)
+                        val dragLeft = (down.position.x - change.position.x).coerceAtLeast(0f)
+                        if (menu == null && startedOnPress && dragLeft >= languageDistancePx && dragLeft > dragUp) {
+                            val items = quickLanguages()
+                            if (items.isNotEmpty()) {
+                                // choosing a language replaces recording: throw away what just started
+                                grow.cancel()
+                                touch = null
+                                holdMode = false
+                                cancelArmed = false
+                                menu = items
+                                menuCurrent = quickCurrent()
+                                hover = -1
+                                onCancel()
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            }
+                        }
+                        val items = menu
+                        if (items != null) {
+                            val i = if (change.position.x in 0f..size.width.toFloat())
+                                (change.position.x / size.width * items.size).toInt().coerceIn(0, items.size - 1)
+                            else -1
+                            if (i != hover) {
+                                hover = i
+                                if (i >= 0) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            }
+                            if (!change.pressed) break
+                            continue
+                        }
                         val nowArmed = startedOnPress && dragUp >= cancelDistancePx
                         if (nowArmed && !cancelArmed) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         cancelArmed = nowArmed
                         if (!change.pressed) break
                     }
                     grow.cancel()
+                    val picking = menu
+                    if (picking != null) {
+                        if (hover in picking.indices) onQuickPick(picking[hover].first)
+                        menu = null
+                        hover = -1
+                        touch = null
+                        onHoldChange(false)
+                        return@awaitEachGesture
+                    }
                     val held = SystemClock.uptimeMillis() - pressedAt >= HOLD_GATE_MS
                     when {
                         startedOnPress && dragUp >= cancelDistancePx -> onCancel()
@@ -443,7 +524,30 @@ private fun RecordButton(
             },
         shape = shape
     ) {
-        if (status != null && !isRecording) {
+        val items = menu
+        if (items != null) {
+            items.forEachIndexed { i, (code, label) ->
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .weight(1f)
+                        .heightIn(min = 28.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(
+                            when {
+                                i == hover -> MaterialTheme.colorScheme.tertiary
+                                code == menuCurrent -> MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.25f)
+                                else -> Color.Transparent
+                            }
+                        )
+                ) {
+                    Text(
+                        label, fontSize = 16.sp, maxLines = 1,
+                        color = if (i == hover) MaterialTheme.colorScheme.onTertiary else Color.Unspecified
+                    )
+                }
+            }
+        } else if (status != null && !isRecording) {
             Text(status, fontSize = 16.sp)
         } else if (!enabled && firstRender) {
             Icon(

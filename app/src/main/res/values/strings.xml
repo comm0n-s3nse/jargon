@@ -44,7 +44,8 @@
     <string name="model_multilingual">Multilingual</string>
     <string name="model_remove">Remove</string>
     <string name="model_add">Add a model file</string>
-    <string name="model_add_hint">A whisper .bin (such as ggml-base-q5_1.bin) or a parakeet .gguf. Copied into the app; nothing is uploaded.</string>
+    <string name="model_add_hint">Add a speech model from your phone: a Whisper .bin file (such as ggml-base-q5_1.bin) or a .gguf file (Parakeet, Canary and others). It is copied into the app; nothing is uploaded.</string>
+    <string name="model_add_choose">Choose file</string>
     <string name="model_switch_note">The keyboard switches to it the next time it opens.</string>
     <string name="language_option">Language</string>
     <string name="language_english_only">English only for this model</string>
@@ -83,4 +84,5 @@
     <string name="haptics_description">The keyboard buzzes when recording starts or is cancelled. Turn on touch feedback in system settings.</string>
     <string name="keyboards_button">Keyboards</string>
     <string name="keyboards_description">Choose which keyboards are enabled</string>
+    <string name="quick_same">Same</string>
 </resources>
