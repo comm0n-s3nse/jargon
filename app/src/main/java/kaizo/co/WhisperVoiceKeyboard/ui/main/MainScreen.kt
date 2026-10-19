@@ -1,5 +1,7 @@
 package kaizo.co.WhisperVoiceKeyboard.ui.main
 
+import androidx.compose.material.icons.outlined.Info
+import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.material3.TextButton
 import androidx.compose.foundation.layout.Column
@@ -55,12 +57,19 @@ import kaizo.co.WhisperVoiceKeyboard.R
 
 @Composable
 fun MainScreen(viewModel: MainScreenViewModel) {
+    var showAbout by remember { mutableStateOf(false) }
+    if (showAbout) {
+        BackHandler { showAbout = false }
+        AboutScreen(onBack = { showAbout = false })
+        return
+    }
     MainScreen(
         canTranscribe = viewModel.canTranscribe,
         isRecording = viewModel.isRecording,
         messageLog = viewModel.dataLog,
         onBenchmarkTapped = viewModel::benchmark,
-        onRecordTapped = viewModel::toggleRecord
+        onRecordTapped = viewModel::toggleRecord,
+        onAboutTapped = { showAbout = true }
     )
 }
 
@@ -71,7 +80,8 @@ private fun MainScreen(
     isRecording: Boolean,
     messageLog: String,
     onBenchmarkTapped: () -> Unit,
-    onRecordTapped: () -> Unit
+    onRecordTapped: () -> Unit,
+    onAboutTapped: () -> Unit
 ) {
     val sharedPref = LocalContext.current.getSharedPreferences(
         stringResource(R.string.preference_file_key), Context.MODE_PRIVATE
@@ -113,6 +123,7 @@ private fun MainScreen(
             item { InputMethodButton() }
             item { PermissionButton() }
             item { MoreButton() }
+            item { AboutButton(onAboutTapped) }
             item { SectionHeader(stringResource(R.string.advanced_header), bp = 4.dp) }
             item {
                 ListItem(
@@ -273,6 +284,17 @@ private fun InputMethodButton() {
         modifier = Modifier.clickable(onClick = {
             context.startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS))
         })
+    )
+}
+
+@Composable
+private fun AboutButton(onClick: () -> Unit) {
+    ListItem(
+        headlineContent = { Text(stringResource(R.string.about_button)) },
+        supportingContent = { Text(stringResource(R.string.about_button_description)) },
+        leadingContent = { Icon(Icons.Outlined.Info, null) },
+        trailingContent = { Icon(Icons.AutoMirrored.Outlined.NavigateNext, null) },
+        modifier = Modifier.clickable(onClick = onClick)
     )
 }
 

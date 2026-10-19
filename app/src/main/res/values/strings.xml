@@ -55,4 +55,11 @@
     <string name="model_unsupported">Not supported on this phone</string>
     <string name="language_model_decides">Chosen by the model</string>
     <string name="settings_button">Settings</string>
+    <string name="about_button">About and licenses</string>
+    <string name="about_button_description">Credits, and the licenses this app is built on</string>
+    <string name="about_title">About</string>
+    <string name="about_back">Back</string>
+    <string name="about_version">Version %1$s</string>
+    <string name="about_summary">A fork of Kaiboard. Speech is recognized on this phone: the app asks for no network permission, so nothing is uploaded. Tap an entry for its license.</string>
+    <string name="about_website">Open website</string>
 </resources>
