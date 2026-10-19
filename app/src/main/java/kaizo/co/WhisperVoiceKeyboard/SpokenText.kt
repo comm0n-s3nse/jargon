@@ -60,35 +60,39 @@ object SpokenText {
         return Result(out, attachLeft)
     }
 
+    /** One emoji, the way it is shown in the list, and the ways people say it (a regex). */
+    data class SpokenEmoji(val label: String, val said: String, val emoji: String)
+
     val EMOJI = listOf(
-        "smiley face" to "🙂",
-        "smiling face" to "😊",
-        "winky face" to "😉",
-        "wink face" to "😉",
-        "sad face" to "🙁",
-        "crying face" to "😢",
-        "laughing face" to "😂",
-        "crying laughing" to "😂",
-        "facepalm" to "🤦",
-        "face palm" to "🤦",
-        "thumbs up" to "👍",
-        "thumbs down" to "👎",
-        "heart emoji" to "❤️",
-        "fire emoji" to "🔥",
-        "shrug emoji" to "🤷",
-        "eye roll" to "🙄",
-        "party popper" to "🎉",
-        "skull emoji" to "💀",
-        "clapping hands" to "👏",
-        "folded hands" to "🙏",
-        "rocket emoji" to "🚀",
-        "hundred emoji" to "💯",
+        SpokenEmoji("smiley face", "smiley face", "🙂"),
+        SpokenEmoji("smiling face", "smiling face", "😊"),
+        SpokenEmoji("wink(y) face", "winky? face", "😉"),
+        SpokenEmoji("hug face", "hug(?:ging)? face", "🤗"),
+        SpokenEmoji("laughing face", "laughing face", "😆"),
+        SpokenEmoji("cry laugh", "cry(?:ing)? laugh(?:ing)?", "😂"),
+        SpokenEmoji("sweat smile", "sweat (?:smile|laugh)", "😅"),
+        SpokenEmoji("grimace", "grimac(?:e|ing)(?: face)?", "😬"),
+        SpokenEmoji("sad face", "sad face", "🙁"),
+        SpokenEmoji("crying face", "crying face", "😢"),
+        SpokenEmoji("eye roll", "eye ?roll", "🙄"),
+        SpokenEmoji("facepalm", "face ?palm", "🤦"),
+        SpokenEmoji("shrug emoji", "shrug emoji", "🤷"),
+        SpokenEmoji("thumbs up", "thumbs up", "👍"),
+        SpokenEmoji("thumbs down", "thumbs down", "👎"),
+        SpokenEmoji("clapping hands", "clapping hands", "👏"),
+        SpokenEmoji("folded hands", "folded hands", "🙏"),
+        SpokenEmoji("heart emoji", "heart emoji", "❤️"),
+        SpokenEmoji("fire emoji", "fire emoji", "🔥"),
+        SpokenEmoji("party popper", "party popper", "🎉"),
+        SpokenEmoji("skull emoji", "skull emoji", "💀"),
+        SpokenEmoji("rocket emoji", "rocket emoji", "🚀"),
+        SpokenEmoji("hundred emoji", "hundred emoji", "💯"),
     )
-    private val emojiPhrases = EMOJI.joinToString("|") { Regex.escape(it.first) }
+    private val emojiPhrases = EMOJI.joinToString("|") { "(?:${it.said})" }
 
     // the phrase as whole words, swallowing a period the model may put after it
     private val emoji = Regex("""(?<![\p{L}\p{N}])($emojiPhrases)(?![\p{L}\p{N}])\.?""", RegexOption.IGNORE_CASE)
-    private val emojiChars = EMOJI.joinToString("|") { Regex.escape(it.second) }
+    private val emojiChars = EMOJI.joinToString("|") { Regex.escape(it.emoji) }
 
     // the pause before "laughing face" comes out as a comma: "a goof, 😂" reads wrong, so the comma goes
     private val commaBefore = Regex("""\s*[,;:]\s*(?=(?:$emojiChars))""")
@@ -97,7 +101,8 @@ object SpokenText {
     /** Spoken emoji anywhere in [text] become the emoji, with no comma stuck to them. */
     fun emoji(text: String): String {
         val out = emoji.replace(text) { m ->
-            EMOJI.first { it.first.equals(m.groupValues[1], ignoreCase = true) }.second
+            val said = m.groupValues[1]
+            EMOJI.first { Regex(it.said, RegexOption.IGNORE_CASE).matches(said) }.emoji
         }
         if (out == text) return text
         return commaAfter.replace(commaBefore.replace(out, " "), "").trim()

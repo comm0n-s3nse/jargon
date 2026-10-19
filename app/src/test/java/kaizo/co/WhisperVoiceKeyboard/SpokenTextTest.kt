@@ -49,8 +49,22 @@ class SpokenTextTest {
     }
 
     @Test
+    fun theWaysPeopleSayOneEmoji() {
+        assertEquals("Hi 😉", SpokenText.emoji("Hi winky face"))
+        assertEquals("Hi 😉", SpokenText.emoji("Hi wink face"))
+        assertEquals("Oops 🤦", SpokenText.emoji("Oops face palm"))
+        assertEquals("Ha 😂", SpokenText.emoji("Ha cry laugh"))
+        assertEquals("Ha 😂", SpokenText.emoji("Ha crying laughing"))
+        assertEquals("Ha 😆", SpokenText.emoji("Ha laughing face"))
+        assertEquals("Phew 😅", SpokenText.emoji("Phew sweat smile"))
+        assertEquals("Well 😬", SpokenText.emoji("Well grimace"))
+        assertEquals("Well 😬", SpokenText.emoji("Well grimace face"))
+        assertEquals("Bye 🤗", SpokenText.emoji("Bye hug face"))
+    }
+
+    @Test
     fun noCommaStuckToAnEmoji() {
-        assertEquals("You're a goof 😂", SpokenText.emoji("You're a goof, laughing face."))
+        assertEquals("You're a goof 😆", SpokenText.emoji("You're a goof, laughing face."))
         assertEquals("Fine 🤷 whatever", SpokenText.emoji("Fine, shrug emoji, whatever"))
         assertEquals("🙂 see you soon.", SpokenText.emoji("Smiley face, see you soon."))
         assertEquals("Nice, really nice", SpokenText.emoji("Nice, really nice"))

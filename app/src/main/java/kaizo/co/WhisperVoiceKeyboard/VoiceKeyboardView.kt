@@ -138,10 +138,10 @@ class VoiceKeyboardView(private val service: VoiceKeyboardInputMethodService) :
             // true while a finger is down on a mic press that started the recording; the
             // cancel button would only get in the way, since dragging up cancels a hold
             var micHeld by remember { mutableStateOf(false) }
-            // set the moment a hold is thrown away, until the service has really stopped recording;
-            // without it the cancel (X) button shows for a blink between release and the stop
-            var cancelling by remember { mutableStateOf(false) }
-            LaunchedEffect(service.isRecording) { if (!service.isRecording) cancelling = false }
+            // set the moment a release stops or throws away the recording, until the service has really
+            // stopped; without it the cancel (X) button shows for a frame between release and the stop
+            var stopping by remember { mutableStateOf(false) }
+            LaunchedEffect(service.isRecording) { if (!service.isRecording) stopping = false }
             Row(modifier = Modifier.padding(bottom = mmToDp(DEAD_SPACE_MM))) {
                 RecordButton(
                     enabled = service.canTranscribe,
@@ -149,9 +149,10 @@ class VoiceKeyboardView(private val service: VoiceKeyboardInputMethodService) :
                     status = service.statusText,
                     onClick = service::toggleRecord,
                     onCancel = {
-                        cancelling = true
+                        stopping = true
                         service.cancelRecord()
                     },
+                    onStopping = { stopping = true },
                     onHoldChange = { micHeld = it },
                     quickLanguages = service::quickLanguages,
                     quickCurrent = service::quickLanguageCurrent,
@@ -163,7 +164,7 @@ class VoiceKeyboardView(private val service: VoiceKeyboardInputMethodService) :
                         .heightIn(min = buttonHeight),
                     shape = shape,
                 )
-                if (service.isRecording && !micHeld && !cancelling) {
+                if (service.isRecording && !micHeld && !stopping) {
                     CancelButton(
                         onClick = service::cancelRecord,
                         modifier = Modifier
@@ -450,7 +451,7 @@ private fun LevelBars(level: () -> Float, modifier: Modifier) {
 @Composable
 private fun RecordButton(
     enabled: Boolean, isRecording: Boolean, status: String?, onClick: () -> Unit,
-    onCancel: () -> Unit, onHoldChange: (Boolean) -> Unit,
+    onCancel: () -> Unit, onStopping: () -> Unit, onHoldChange: (Boolean) -> Unit,
     quickLanguages: () -> List<Pair<String, String>>, quickCurrent: () -> String,
     onQuickPick: (String) -> Unit, level: () -> Float, modifier: Modifier, shape: Shape
 ) {
@@ -614,7 +615,10 @@ private fun RecordButton(
                     val held = SystemClock.uptimeMillis() - pressedAt >= HOLD_GATE_MS
                     when {
                         startedOnPress && dragUp >= cancelDistancePx -> onCancel()
-                        !startedOnPress || held -> onClick()
+                        !startedOnPress || held -> {
+                            onStopping()
+                            onClick()
+                        }
                     }
                     touch = null
                     holdMode = false

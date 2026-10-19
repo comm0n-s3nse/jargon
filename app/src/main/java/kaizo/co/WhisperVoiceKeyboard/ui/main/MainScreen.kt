@@ -420,8 +420,8 @@ private fun SpokenEmojiItem(prefs: android.content.SharedPreferences) {
             title = { Text(stringResource(R.string.spoken_emoji_list_title)) },
             text = {
                 Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                    SpokenText.EMOJI.forEach { (phrase, emoji) ->
-                        Text("$emoji  “$phrase”", modifier = Modifier.padding(vertical = 2.dp))
+                    SpokenText.EMOJI.forEach { e ->
+                        Text("${e.emoji}  “${e.label}”", modifier = Modifier.padding(vertical = 2.dp))
                     }
                 }
             },

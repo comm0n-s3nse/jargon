@@ -46,7 +46,7 @@ private data class Credit(
 )
 
 // The person who made this fork, and where to find them.
-private const val FORK_AUTHOR = "comm0n-s3nse"
+private const val FORK_AUTHOR = "common_sensei"
 private const val FORK_GITHUB = "https://github.com/comm0n-s3nse"
 private const val FORK_X = "https://x.com/comm0n_s3nse"
 

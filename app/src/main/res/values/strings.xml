@@ -93,5 +93,7 @@
     <string name="spoken_emoji_description">Say “smiley face”, “facepalm”, “thumbs up”… Tap for the whole list.</string>
     <string name="spoken_emoji_list_title">Say it, get the emoji</string>
     <string name="appearance_title">Appearance</string>
-    <string name="coming_soon">Coming soon</string>
+    <string name="enter_hint_option">Gear on the enter key</string>
+    <string name="enter_hint_description">A small reminder that holding enter opens settings.</string>
+    <string name="coming_soon">More coming soon</string>
 </resources>
