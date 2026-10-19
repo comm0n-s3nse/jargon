@@ -6,6 +6,7 @@ import kaizo.co.WhisperVoiceKeyboard.models.ModelStore
 import kaizo.co.WhisperVoiceKeyboard.models.ModelEntry
 import kaizo.co.WhisperVoiceKeyboard.models.LANGUAGE_KEY
 import kaizo.co.WhisperVoiceKeyboard.models.TRANSLATE_KEY
+import kaizo.co.WhisperVoiceKeyboard.ui.main.ENTER_HINT_KEY
 import kaizo.co.WhisperVoiceKeyboard.models.recentTranslateTargets
 import kaizo.co.WhisperVoiceKeyboard.models.rememberTranslateTarget
 import kaizo.co.WhisperVoiceKeyboard.models.ACTIVE_MODEL_KEY
@@ -132,6 +133,10 @@ class VoiceKeyboardInputMethodService : InputMethodService(), LifecycleOwner,
         sharedPref = application.getSharedPreferences(
             getString(R.string.preference_file_key), Context.MODE_PRIVATE
         )
+        enterHint = sharedPref?.getBoolean(ENTER_HINT_KEY, true) ?: true
+        prefListener = SharedPreferences.OnSharedPreferenceChangeListener { p, key ->
+            if (key == ENTER_HINT_KEY) enterHint = p.getBoolean(ENTER_HINT_KEY, true)
+        }.also { sharedPref?.registerOnSharedPreferenceChangeListener(it) }
 
         scope.launch {
             printSystemInfo()
@@ -168,6 +173,8 @@ class VoiceKeyboardInputMethodService : InputMethodService(), LifecycleOwner,
         private set
     var isRecording by mutableStateOf(false)
     var micLevel by mutableStateOf(0f) // how loud the mic is right now, 0 to 1, for the level bars
+    var enterHint by mutableStateOf(true) // the small gear on the enter key (Appearance)
+    private var prefListener: SharedPreferences.OnSharedPreferenceChangeListener? = null
         private set
     private var modelsPath: File? = null
     private var samplesPath: File? = null
@@ -529,14 +536,38 @@ class VoiceKeyboardInputMethodService : InputMethodService(), LifecycleOwner,
             if (replaced == null && isSingleLineField(currentInputEditorInfo?.inputType ?: 0)) {
                 text = text?.let { withoutClosingPunctuation(it) }
             }
+            // "question mark", "smiley face": the words people say for what they cannot type
+            var attachLeft = false
+            if (text != null && text.isNotEmpty()) {
+                if (sharedPref?.getBoolean(getString(R.string.spoken_emoji), true) != false) {
+                    text = SpokenText.emoji(text)
+                }
+                if (sharedPref?.getBoolean(getString(R.string.spoken_punctuation), true) != false) {
+                    val spoken = SpokenText.punctuation(text, capitalize = checkBoolPref(R.string.casual_mode) != true)
+                    text = spoken.text
+                    attachLeft = spoken.attachLeft && replaced == null
+                }
+            }
             // add text only if non-empty
             // avoids adding just a single space for empty messages
             if (text?.length!! > 0) {
-                val out = leading + text + trailing
                 // text reaches the field only here, after the checkmark, as one commit
                 synchronized(editLock) {
-                    currentInputConnection.commitText(out, 1)
-                    pushEdit(out, replaced.orEmpty())
+                    val ic = currentInputConnection
+                    var deleted = replaced.orEmpty()
+                    if (attachLeft) {
+                        // punctuation goes on the word before the cursor: no space in front of it, and the
+                        // space the last dictation left behind comes out
+                        leading = ""
+                        val before = ic.getTextBeforeCursor(2, 0)?.toString().orEmpty()
+                        if (before.endsWith(" ") && before.length == 2 && !before[0].isWhitespace()) {
+                            ic.deleteSurroundingText(1, 0)
+                            deleted = " "
+                        }
+                    }
+                    val out = leading + text + trailing
+                    ic.commitText(out, 1)
+                    pushEdit(out, deleted)
                 }
             }
             val elapsed = System.currentTimeMillis() - start

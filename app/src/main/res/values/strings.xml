@@ -86,4 +86,15 @@
     <string name="keyboards_description">Choose which keyboards are enabled</string>
     <string name="quick_same">Same</string>
     <string name="undo_button">Undo</string>
+    <string name="spoken_punctuation">spoken_punctuation</string>
+    <string name="spoken_punctuation_option">Spoken punctuation</string>
+    <string name="spoken_punctuation_description">Say “question mark”, “period” or “comma” at the start or end and it is typed as the mark.</string>
+    <string name="spoken_emoji">spoken_emoji</string>
+    <string name="spoken_emoji_option">Spoken emoji</string>
+    <string name="spoken_emoji_description">Say “smiley face”, “facepalm”, “thumbs up”… Tap for the whole list.</string>
+    <string name="spoken_emoji_list_title">Say it, get the emoji</string>
+    <string name="appearance_title">Appearance</string>
+    <string name="appearance_description">How the keys look</string>
+    <string name="enter_hint_option">Settings hint on the enter key</string>
+    <string name="enter_hint_description">A small gear in the corner, a reminder that holding enter opens settings.</string>
 </resources>

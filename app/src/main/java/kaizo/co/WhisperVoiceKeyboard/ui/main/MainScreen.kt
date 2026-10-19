@@ -2,6 +2,12 @@ package kaizo.co.WhisperVoiceKeyboard.ui.main
 
 import kaizo.co.WhisperVoiceKeyboard.models.ModelStore
 import androidx.compose.material.icons.outlined.Info
+import kaizo.co.WhisperVoiceKeyboard.SpokenText
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material.icons.outlined.QuestionMark
+import androidx.compose.material.icons.outlined.Palette
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.material3.TextButton
@@ -60,9 +66,15 @@ import kaizo.co.WhisperVoiceKeyboard.R
 @Composable
 fun MainScreen(viewModel: MainScreenViewModel) {
     var showAbout by remember { mutableStateOf(false) }
+    var showAppearance by remember { mutableStateOf(false) }
     if (showAbout) {
         BackHandler { showAbout = false }
         AboutScreen(onBack = { showAbout = false })
+        return
+    }
+    if (showAppearance) {
+        BackHandler { showAppearance = false }
+        AppearanceScreen(onBack = { showAppearance = false })
         return
     }
     MainScreen(
@@ -71,7 +83,8 @@ fun MainScreen(viewModel: MainScreenViewModel) {
         messageLog = viewModel.dataLog,
         onBenchmarkTapped = viewModel::benchmark,
         onRecordTapped = viewModel::toggleRecord,
-        onAboutTapped = { showAbout = true }
+        onAboutTapped = { showAbout = true },
+        onAppearanceTapped = { showAppearance = true },
     )
 }
 
@@ -83,7 +96,8 @@ private fun MainScreen(
     messageLog: String,
     onBenchmarkTapped: () -> Unit,
     onRecordTapped: () -> Unit,
-    onAboutTapped: () -> Unit
+    onAboutTapped: () -> Unit,
+    onAppearanceTapped: () -> Unit,
 ) {
     val sharedPref = LocalContext.current.getSharedPreferences(
         stringResource(R.string.preference_file_key), Context.MODE_PRIVATE
@@ -133,6 +147,7 @@ private fun MainScreen(
             if (!setup.hapticsOn) item { HapticsButton() }
             item { AboutButton(onAboutTapped) }
             if (setup.keyboardEnabled) item { InputMethodButton(enabled = true) }
+            item { AppearanceButton(onAppearanceTapped) }
             item { ModelSettings() }
             item { SectionHeader(stringResource(R.string.behavior_header)) }
             item {
@@ -173,6 +188,8 @@ private fun MainScreen(
                     modifier = Modifier.fillMaxWidth()
                 )
             }
+            item { SpokenPunctuationItem(sharedPref) }
+            item { SpokenEmojiItem(sharedPref) }
             item { SectionHeader(stringResource(R.string.advanced_header), bp = 4.dp) }
             item {
                 ListItem(
@@ -348,6 +365,72 @@ private fun InputMethodButton(enabled: Boolean) {
             context.startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS))
         })
     )
+}
+
+@Composable
+private fun AppearanceButton(onClick: () -> Unit) {
+    ListItem(
+        headlineContent = { Text(stringResource(R.string.appearance_title)) },
+        supportingContent = { Text(stringResource(R.string.appearance_description)) },
+        leadingContent = { Icon(Icons.Outlined.Palette, null) },
+        trailingContent = { Icon(Icons.AutoMirrored.Outlined.NavigateNext, null) },
+        modifier = Modifier.clickable(onClick = onClick)
+    )
+}
+
+@Composable
+private fun SpokenPunctuationItem(prefs: android.content.SharedPreferences) {
+    val key = stringResource(R.string.spoken_punctuation)
+    var on by remember { mutableStateOf(prefs.getBoolean(key, true)) }
+    ListItem(
+        headlineContent = { Text(stringResource(R.string.spoken_punctuation_option)) },
+        supportingContent = { Text(stringResource(R.string.spoken_punctuation_description)) },
+        leadingContent = { Icon(Icons.Outlined.QuestionMark, null) },
+        trailingContent = {
+            Switch(checked = on, onCheckedChange = {
+                on = it
+                prefs.edit().putBoolean(key, it).apply()
+            })
+        },
+        modifier = Modifier.fillMaxWidth()
+    )
+}
+
+@Composable
+private fun SpokenEmojiItem(prefs: android.content.SharedPreferences) {
+    val key = stringResource(R.string.spoken_emoji)
+    var on by remember { mutableStateOf(prefs.getBoolean(key, true)) }
+    var list by remember { mutableStateOf(false) }
+    ListItem(
+        headlineContent = { Text(stringResource(R.string.spoken_emoji_option)) },
+        supportingContent = { Text(stringResource(R.string.spoken_emoji_description)) },
+        leadingContent = { Icon(Icons.Outlined.Mood, null) },
+        trailingContent = {
+            Switch(checked = on, onCheckedChange = {
+                on = it
+                prefs.edit().putBoolean(key, it).apply()
+            })
+        },
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { list = true }
+    )
+    if (list) {
+        AlertDialog(
+            onDismissRequest = { list = false },
+            title = { Text(stringResource(R.string.spoken_emoji_list_title)) },
+            text = {
+                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                    SpokenText.EMOJI.forEach { (phrase, emoji) ->
+                        Text("$emoji  “$phrase”", modifier = Modifier.padding(vertical = 2.dp))
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { list = false }) { Text(stringResource(R.string.net_ok)) }
+            }
+        )
+    }
 }
 
 @Composable

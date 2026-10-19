@@ -52,7 +52,11 @@ Tap and hold-to-delete are unchanged.
 
 ### Enter
 
-Unchanged (pull up: gear roll + tint + tick; slide left: keyboard icon roll + tint + tick).
+Tap: enter. **Flick up** (8 mm): the return arrow rolls up and out while the keyboard icon rolls in
+from below, the key tints and ticks past the line, and release switches to the previous keyboard.
+**Hold** (300 ms with the finger still): settings. A small gear (10 dp, 55 %) sits in the key's
+top-right corner as the reminder, the way a phone key shows its second character; it fades out
+during a flick and can be turned off in Appearance. The slide-left gesture is gone.
 
 ## Appearance screen (when Charge exists)
 

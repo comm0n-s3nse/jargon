@@ -6,6 +6,10 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.Alignment
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.ui.platform.LocalViewConfiguration
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.fillMaxHeight
 import kotlin.math.sin
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.runtime.mutableStateListOf
@@ -15,7 +19,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.Canvas
 import kotlin.math.abs
 import androidx.compose.material.icons.outlined.Keyboard
-import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
@@ -102,9 +105,12 @@ private const val CANCEL_DRAG_MM = 10f
 private const val SIDE_KEY_WIDTH_MM = 9f
 
 // how far to pull enter up before releasing opens settings
-private const val SETTINGS_DRAG_MM = 8f
 private const val LANGUAGE_DRAG_MM = 8f // slide left on the mic: quick language list
-private const val KEYBOARD_DRAG_MM = 8f // slide left on enter: previous keyboard
+private const val KEYBOARD_FLICK_MM = 8f // flick up on enter: previous keyboard
+private const val HOLD_FOR_SETTINGS_MS = 300L // a still finger on enter this long opens settings
+private const val HINT_SIZE_DP = 10
+private const val HINT_OFFSET_DP = 7
+private const val HINT_ALPHA = 0.55f
 
 private val CancelRed = Color(0xFFD32F2F)
 private val UndoRed = CancelRed // the backspace key once an undo is armed: the same red as cancel
@@ -184,6 +190,7 @@ class VoiceKeyboardView(private val service: VoiceKeyboardInputMethodService) :
                     onEnter = service::enter,
                     onSettings = service::openSettings,
                     onPreviousKeyboard = service::switchToPreviousKeyboard,
+                    showHint = service.enterHint,
                     buttonHeight = buttonHeight,
                     keyWidth = keyWidth,
                     modifier = Modifier.padding(padding),
@@ -301,57 +308,72 @@ private fun DeleteButton(
     }
 }
 
-// Tap: enter. Pull up: the return arrow rolls up out of the key while a gear rolls in from below;
-// past the line the key tints and ticks, and letting go opens settings. Everything stays inside
-// the key because an input method cannot draw outside its own strip.
+// Tap: enter. Flick up: the return arrow rolls up out of the key while a keyboard rolls in from
+// below; past the line the key tints and ticks, and letting go switches to the previous keyboard.
+// Hold (300 ms, finger still): settings. A small gear in the corner says so, until it is turned off
+// in Appearance. Everything stays inside the key: an input method cannot draw outside its strip.
 @Composable
 private fun EnterButton(
-    onEnter: () -> Unit, onSettings: () -> Unit, onPreviousKeyboard: () -> Unit, buttonHeight: Dp, keyWidth: Dp,
-    modifier: Modifier, shape: Shape, contentPadding: PaddingValues
+    onEnter: () -> Unit, onSettings: () -> Unit, onPreviousKeyboard: () -> Unit, showHint: Boolean,
+    buttonHeight: Dp, keyWidth: Dp, modifier: Modifier, shape: Shape, contentPadding: PaddingValues
 ) {
-    val openDistancePx = mmToPx(SETTINGS_DRAG_MM)
-    val switchDistancePx = mmToPx(KEYBOARD_DRAG_MM)
-    val rollPx = with(LocalDensity.current) { 28.dp.toPx() }
+    val switchDistancePx = mmToPx(KEYBOARD_FLICK_MM)
+    val rollPx = with(LocalDensity.current) { ROLL_DP.dp.toPx() }
+    val slop = LocalViewConfiguration.current.touchSlop
     val haptic = LocalHapticFeedback.current
+    val uiScope = rememberCoroutineScope()
     var dragY by remember { mutableFloatStateOf(0f) }
-    var dragX by remember { mutableFloatStateOf(0f) }
-    var horizontal by remember { mutableStateOf<Boolean?>(null) } // which way this drag went, decided early
     var armed by remember { mutableStateOf(false) }
-    val up = (-dragY / openDistancePx).coerceIn(0f, 1f)
-    val left = (-dragX / switchDistancePx).coerceIn(0f, 1f)
-    fun reset() {
-        dragY = 0f
-        dragX = 0f
-        horizontal = null
-        armed = false
-    }
+    val up = (-dragY / switchDistancePx).coerceIn(0f, 1f)
     Button(
-        onClick = onEnter,
+        onClick = {},
         modifier = modifier
             .width(keyWidth)
             .heightIn(min = buttonHeight)
             .pointerInput(Unit) {
-                detectDragGestures(
-                    onDragStart = { reset() },
-                    onDragEnd = {
-                        if (horizontal == true && dragX <= -switchDistancePx) onPreviousKeyboard()
-                        else if (horizontal == false && dragY <= -openDistancePx) onSettings()
-                        reset()
-                    },
-                    onDragCancel = { reset() },
-                ) { change, amount ->
-                    change.consume()
-                    if (horizontal == null && (abs(amount.x) + abs(amount.y)) > 0f) {
-                        horizontal = abs(amount.x) > abs(amount.y)
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    dragY = 0f
+                    armed = false
+                    var moved = false
+                    var held = false
+                    // a still finger for the hold time opens settings; any movement first makes it a flick
+                    val hold = uiScope.launch {
+                        delay(HOLD_FOR_SETTINGS_MS)
+                        if (!moved) {
+                            held = true
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onSettings()
+                        }
                     }
-                    if (horizontal == true) {
-                        dragX = (dragX + amount.x).coerceIn(-switchDistancePx * 1.25f, 0f)
-                    } else {
-                        dragY = (dragY + amount.y).coerceIn(-openDistancePx * 1.25f, 0f)
+                    var lastY = down.position.y
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                        if (held) {
+                            change.consume()
+                        } else {
+                            val dy = change.position.y - lastY
+                            lastY = change.position.y
+                            if (!moved && abs(change.position.y - down.position.y) > slop) moved = true
+                            if (moved) {
+                                change.consume()
+                                dragY = (dragY + dy).coerceIn(-switchDistancePx * 1.25f, 0f)
+                                val nowArmed = dragY <= -switchDistancePx
+                                if (nowArmed && !armed) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                armed = nowArmed
+                            }
+                        }
+                        if (!change.pressed) break
                     }
-                    val nowArmed = if (horizontal == true) dragX <= -switchDistancePx else dragY <= -openDistancePx
-                    if (nowArmed && !armed) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    armed = nowArmed
+                    hold.cancel()
+                    when {
+                        held -> {}
+                        moved -> if (armed) onPreviousKeyboard()
+                        else -> onEnter()
+                    }
+                    dragY = 0f
+                    armed = false
                 }
             },
         shape = shape,
@@ -362,33 +384,35 @@ private fun EnterButton(
             ButtonDefaults.buttonColors()
         },
     ) {
-        Box(contentAlignment = Alignment.Center) {
-            val fade = 1f - maxOf(up, left)
+        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxHeight()) {
             Icon(
                 Icons.AutoMirrored.Outlined.KeyboardReturn,
                 stringResource(R.string.return_button),
                 modifier = Modifier.graphicsLayer {
                     translationY = -up * rollPx
-                    translationX = -left * rollPx
-                    alpha = fade
-                }
-            )
-            Icon(
-                Icons.Outlined.Settings,
-                stringResource(R.string.settings_button),
-                modifier = Modifier.graphicsLayer {
-                    translationY = (1f - up) * rollPx
-                    alpha = up
+                    alpha = 1f - up
                 }
             )
             Icon(
                 Icons.Outlined.Keyboard,
                 stringResource(R.string.switch_keyboard_button),
                 modifier = Modifier.graphicsLayer {
-                    translationX = (1f - left) * rollPx
-                    alpha = left
+                    translationY = (1f - up) * rollPx
+                    alpha = up
                 }
             )
+            if (showHint) {
+                // the way a phone key shows its second character: small, in the corner, out of the way
+                Icon(
+                    Icons.Outlined.Settings,
+                    stringResource(R.string.settings_button),
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .offset(x = HINT_OFFSET_DP.dp, y = (-HINT_OFFSET_DP).dp)
+                        .size(HINT_SIZE_DP.dp)
+                        .graphicsLayer { alpha = HINT_ALPHA * (1f - up) }
+                )
+            }
         }
     }
 }
