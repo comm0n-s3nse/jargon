@@ -24,7 +24,7 @@ This project is developed and maintained with ❤️ by [Kai](https://kaisoapbox
 
 ## How to Run
 
-Add the model you want to use under `app/src/main/assets/models/` (e.g. `ggml-tiny.en.bin`). Then,
+Add the model you want to use under `app/src/main/assets/models/` (e.g. `ggml-tiny.en-q8_0.bin`, which `scripts/fetch-model.sh` downloads). Then,
 just open the project in Android Studio, and it should work!
 
 ## Build

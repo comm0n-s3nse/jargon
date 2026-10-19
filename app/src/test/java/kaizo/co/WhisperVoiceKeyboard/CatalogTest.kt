@@ -1,6 +1,7 @@
 package kaizo.co.WhisperVoiceKeyboard
 
 import kaizo.co.WhisperVoiceKeyboard.models.CATALOG
+import kaizo.co.WhisperVoiceKeyboard.models.ModelEngine
 import kaizo.co.WhisperVoiceKeyboard.models.catalogFor
 import kaizo.co.WhisperVoiceKeyboard.models.copyWithSha256
 import kaizo.co.WhisperVoiceKeyboard.models.downloadSizeLabel
@@ -35,18 +36,26 @@ class CatalogTest {
     }
 
     @Test
-    fun theBuiltInModelAndComingSoonOnesHaveNoDownload() {
+    fun onlyTheBuiltInModelHasNoDownload() {
         assertTrue(CATALOG.filter { it.builtIn }.all { !it.downloadable })
-        val canary = CATALOG.first { it.id == "canary-1b" }
-        assertFalse(canary.downloadable)
-        assertNull(canary.sha256)
+        assertTrue(CATALOG.filter { !it.builtIn }.all { it.downloadable })
+    }
+
+    @Test
+    fun eachModelNamesTheEngineThatRunsIt() {
+        assertEquals(ModelEngine.WHISPER_CPP, CATALOG.first { it.id == "whisper-tiny" }.engine)
+        assertEquals(ModelEngine.WHISPER_CPP, CATALOG.first { it.id == "whisper-small" }.engine)
+        assertEquals(ModelEngine.PARAKEET_CPP, CATALOG.first { it.id == "fluid-speech-mini" }.engine)
+        assertEquals(ModelEngine.TRANSCRIBE_CPP, CATALOG.first { it.id == "canary-1b" }.engine)
+        // a .bin is whisper.cpp's and a .gguf never is
+        for (m in CATALOG) assertEquals(m.file.endsWith(".bin"), m.engine == ModelEngine.WHISPER_CPP)
     }
 
     @Test
     fun aModelAddedByHandIsRecognizedByItsFileName() {
         assertEquals("Whisper Small", catalogFor("ggml-small-q5_1.bin")?.name)
         assertEquals("Fluid Speech Mini", catalogFor("fluid-speech-mini-q2k-q4k.gguf")?.name)
-        assertNotNull(catalogFor("ggml-tiny.en.bin"))
+        assertNotNull(catalogFor("ggml-tiny.en-q8_0.bin"))
         assertNull(catalogFor("ggml-base-q5_1.bin"))
     }
 

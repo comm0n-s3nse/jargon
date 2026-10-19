@@ -16,3 +16,4 @@ rootProject.name = "Kaiboard"
 include ':app'
 include ':lib'
 include ':parakeet'
+include ':transcribe'

@@ -44,7 +44,8 @@ checklist for getting it to other people, with what has and has not been checked
     `prebuild`, because it is not in git; they may want it handled differently
   - whether `cmake` and NDK `r25c` in the recipe are what their server provides
   - `submodules: true` also fetches parakeet.cpp's own submodules, which are not needed
-  - the build compiles whisper.cpp for four ABIs and parakeet.cpp for arm64 (long on a slow machine)
+  - the build compiles whisper.cpp for four ABIs, and parakeet.cpp and transcribe.cpp for arm64 (long
+    on a slow machine; transcribe.cpp alone is about 170 compile steps)
 
 ## Linting the recipe
 

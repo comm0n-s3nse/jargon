@@ -24,10 +24,10 @@ object CpuFeatures {
     }
 
     /**
-     * parakeet's kernels are built for dot-product ("asimddp") and half-precision ("asimdhp")
+     * The parakeet.cpp and transcribe.cpp engines (GGUF models) are built for dot-product ("asimddp") and half-precision ("asimdhp")
      * instructions. A phone without them would crash with an illegal-instruction error, so it
      * is not offered parakeet models; whisper runs everywhere.
      */
-    fun supportsParakeet(): Boolean =
+    fun supportsGguf(): Boolean =
         Build.SUPPORTED_ABIS[0] == "arm64-v8a" && "asimddp" in features && "asimdhp" in features
 }

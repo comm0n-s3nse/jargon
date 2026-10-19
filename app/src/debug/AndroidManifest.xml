@@ -1,2 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android" />
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- debug builds only: lets adb load models by path and time them inside the real app -->
+        <receiver android:name="kaizo.co.WhisperVoiceKeyboard.EngineProbeReceiver" android:exported="true">
+            <intent-filter>
+                <action android:name="kaizo.probe.RUN" />
+            </intent-filter>
+        </receiver>
+    </application>
+</manifest>

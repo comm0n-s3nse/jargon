@@ -75,4 +75,6 @@
     <string name="about_original">Original developer</string>
     <string name="about_extended">Extended by</string>
     <string name="about_enhanced">Enhanced with</string>
+    <string name="translate_option">Translate to</string>
+    <string name="translate_off">Off, just write what is said</string>
 </resources>

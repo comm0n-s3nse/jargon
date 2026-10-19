@@ -19,19 +19,25 @@ data class CatalogModel(
     val sizeBytes: Long = 0,
     val builtIn: Boolean = false,
     val note: String? = null,
+    val engine: ModelEngine = ModelEngine.WHISPER_CPP, // which engine runs this file
 ) {
     val downloadable get() = url != null
-    val needsParakeet get() = file.endsWith(".gguf")
+    val needsGguf get() = engine != ModelEngine.WHISPER_CPP
 }
 
 private const val HF = "https://huggingface.co"
 
-// RAM figures are peak resident memory measured on a OnePlus 15 for a 7.5 s clip, rounded; the
+// peak memory of transcribe.cpp's CLI on a ThinkPhone, 7.5 s clip: 1237 MB (Q4_K_M, 4 threads)
+private const val CANARY_RAM_MB = 1250
+
+// RAM figures are peak resident memory measured on phones for a 7.5 s clip, rounded (see each model's
+// note in KAIBOARD.md); the
 // download sizes and checksums are those of the files that were tested with this app.
 val CATALOG = listOf(
     CatalogModel(
         id = "whisper-tiny", name = "Whisper Tiny", by = "OpenAI",
-        file = "ggml-tiny.en.bin", ramMb = 250, builtIn = true,
+        // 8-bit quantized: 44 MB instead of 78, a fifth faster, 30 MB less memory, same output on test speech
+        file = "ggml-tiny.en-q8_0.bin", ramMb = 180, builtIn = true,
         summary = "English only",
         about = "The built-in model: small and quick, English only.",
         credit = "Whisper by OpenAI, MIT license, converted for whisper.cpp.",
@@ -47,6 +53,7 @@ val CATALOG = listOf(
         sha256 = "f0796bf40274cc49d3db58563c23cd024b52ca7e2ae4749ccf27af85841726b5",
         sizeBytes = 347_357_184,
         note = "Needs a phone from about 2019 or newer.",
+        engine = ModelEngine.PARAKEET_CPP,
     ),
     CatalogModel(
         id = "whisper-small", name = "Whisper Small", by = "OpenAI",
@@ -61,10 +68,16 @@ val CATALOG = listOf(
     ),
     CatalogModel(
         id = "canary-1b", name = "Canary 1B", by = "NVIDIA",
-        file = "canary-1b-v2-Q4_K_M.gguf", ramMb = 1000,
-        summary = "Speech translation, English and 24 European languages",
-        about = "Coming soon. It needs a speech engine that is not in the app yet.",
-        credit = "Canary-1B-v2 by NVIDIA. CC BY 4.0.",
+        file = "canary-1b-v2-Q4_K_M.gguf", ramMb = CANARY_RAM_MB,
+        summary = "Translates speech between 25 European languages (beta)",
+        about = "Listens in 25 European languages, including Polish and Portuguese, and can translate " +
+            "what it hears into another: set Translate to, below. Slower than the others, about " +
+            "1.6 seconds for a sentence on a mid-range phone, and it needs a roomy phone.",
+        credit = "Canary-1B-v2 by NVIDIA, CC BY 4.0, converted for transcribe.cpp by handy-computer.",
+        url = "$HF/handy-computer/canary-1b-v2-gguf/resolve/main/canary-1b-v2-Q4_K_M.gguf",
+        sha256 = "49e0a67e219bec95a254c2348460b6350e75a7ac6f93a131e48244b4c7cb53b9",
+        sizeBytes = 735_476_448,
+        engine = ModelEngine.TRANSCRIBE_CPP,
     ),
 )
 

@@ -5,6 +5,7 @@ import kaizo.co.WhisperVoiceKeyboard.models.languageFor
 import kaizo.co.WhisperVoiceKeyboard.models.ModelStore
 import kaizo.co.WhisperVoiceKeyboard.models.ModelEntry
 import kaizo.co.WhisperVoiceKeyboard.models.LANGUAGE_KEY
+import kaizo.co.WhisperVoiceKeyboard.models.TRANSLATE_KEY
 import kaizo.co.WhisperVoiceKeyboard.models.ACTIVE_MODEL_KEY
 import kaizo.co.WhisperVoiceKeyboard.engine.WhisperEngine
 import kaizo.co.WhisperVoiceKeyboard.engine.SpeechEngine
@@ -390,6 +391,12 @@ class VoiceKeyboardInputMethodService : InputMethodService(), LifecycleOwner,
         }
     }
 
+    // the language to translate into, only when the loaded model can and the person chose one
+    private fun translateTo(): String? {
+        if (engine?.canTranslate != true) return null
+        return sharedPref?.getString(TRANSLATE_KEY, "")?.takeIf { it.isNotEmpty() }
+    }
+
     private fun language(): String {
         val file = loadedModel?.fileName ?: return "en"
         return languageFor(file, sharedPref?.getString(LANGUAGE_KEY, "en") ?: "en")
@@ -457,7 +464,7 @@ class VoiceKeyboardInputMethodService : InputMethodService(), LifecycleOwner,
             val nThreads = threads()
             printMessage("Transcribing data...\n")
             val start = System.currentTimeMillis()
-            var text = engine?.transcribe(data, nThreads, language())?.trim()
+            var text = engine?.transcribe(data, nThreads, language(), translateTo())?.trim()
             printMessage(text.toString())
             // remove special tokens like [MUSIC] or [BLANK_AUDIO]
             // bizarrely, it sometimes also does *music* or (music) so handle these case-s too

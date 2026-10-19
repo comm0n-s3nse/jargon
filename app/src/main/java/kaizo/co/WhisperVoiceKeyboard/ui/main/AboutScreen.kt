@@ -68,6 +68,11 @@ private val CREDITS = listOf(
         "https://github.com/mudler/parakeet.cpp", "parakeetcpp-mit.txt"
     ),
     Credit(
+        "transcribe.cpp", "the transcribe.cpp authors", "MIT",
+        "The engine for Canary and other .gguf models. Its license file also lists the third-party code it carries.",
+        "https://github.com/handy-computer/transcribe.cpp", "transcribecpp-mit.txt"
+    ),
+    Credit(
         "ggml", "the ggml authors", "MIT",
         "The tensor library inside both engines.",
         "https://github.com/ggml-org/ggml", "ggml-mit.txt"
@@ -76,6 +81,11 @@ private val CREDITS = listOf(
         "Android libraries", "Google and JetBrains", "Apache 2.0",
         "AndroidX, Jetpack Compose, Material 3 and its icons, Kotlin, kotlinx.coroutines, and Accompanist.",
         "https://www.apache.org/licenses/LICENSE-2.0", "apache-2.0.txt"
+    ),
+    Credit(
+        "Canary 1B (a model you can add)", "NVIDIA, converted by handy-computer", "CC BY 4.0",
+        "Not included in the app. Credit: \"Canary-1B-v2 by NVIDIA\", converted for transcribe.cpp.",
+        "https://huggingface.co/handy-computer/canary-1b-v2-gguf"
     ),
     Credit(
         "Fluid Speech Mini (a model you can add)", "FluidVoice Labs", "CC BY 4.0",

@@ -13,6 +13,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.Language
+import androidx.compose.material.icons.outlined.Translate
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -43,7 +44,8 @@ import kaizo.co.WhisperVoiceKeyboard.models.LANGUAGES
 import kaizo.co.WhisperVoiceKeyboard.models.LANGUAGE_KEY
 import kaizo.co.WhisperVoiceKeyboard.models.ModelDownloader
 import kaizo.co.WhisperVoiceKeyboard.models.ModelEntry
-import kaizo.co.WhisperVoiceKeyboard.models.ModelFormat
+import kaizo.co.WhisperVoiceKeyboard.models.ModelEngine
+import kaizo.co.WhisperVoiceKeyboard.models.TRANSLATE_KEY
 import kaizo.co.WhisperVoiceKeyboard.models.ModelImportException
 import kaizo.co.WhisperVoiceKeyboard.models.ModelStore
 import kaizo.co.WhisperVoiceKeyboard.models.catalogFor
@@ -71,6 +73,8 @@ fun ModelSettings() {
     var activeId by remember { mutableStateOf(store.active(prefs).id) }
     var language by remember { mutableStateOf(prefs.getString(LANGUAGE_KEY, "en") ?: "en") }
     var menuOpen by remember { mutableStateOf(false) }
+    var translateTo by remember { mutableStateOf(prefs.getString(TRANSLATE_KEY, "") ?: "") }
+    var translateMenuOpen by remember { mutableStateOf(false) }
     var note by remember { mutableStateOf<String?>(null) }
     var importProgress by remember { mutableStateOf<String?>(null) }
     var confirm by remember { mutableStateOf<CatalogModel?>(null) }
@@ -178,7 +182,7 @@ fun ModelSettings() {
         // the recommended models, installed or not
         CATALOG.forEach { c ->
             val entry = installed[c.file]
-            val supported = !c.needsParakeet || CpuFeatures.supportsParakeet()
+            val supported = !c.needsGguf || CpuFeatures.supportsGguf()
             val headline = "${c.name} · ${c.by}"
             if (entry != null) {
                 ListItem(
@@ -244,7 +248,9 @@ fun ModelSettings() {
                     Text(
                         "${model.sizeBytes shr 20} MB · " + when {
                             !supported -> stringResource(R.string.model_unsupported)
-                            model.format == ModelFormat.GGUF -> stringResource(R.string.model_parakeet)
+                            model.engine == ModelEngine.PARAKEET_CPP -> stringResource(R.string.model_parakeet)
+                            model.engine == ModelEngine.TRANSCRIBE_CPP ->
+                                model.arch?.replaceFirstChar { it.uppercase() } ?: "GGUF"
                             model.englishOnly -> stringResource(R.string.model_english_only)
                             else -> stringResource(R.string.model_multilingual)
                         }
@@ -265,7 +271,7 @@ fun ModelSettings() {
             supportingContent = {
                 Text(
                     when {
-                        active.format == ModelFormat.GGUF -> stringResource(R.string.language_model_decides)
+                        active.engine == ModelEngine.PARAKEET_CPP -> stringResource(R.string.language_model_decides)
                         active.englishOnly -> stringResource(R.string.language_english_only)
                         else -> LANGUAGES.firstOrNull { it.first == language }?.second ?: language
                     }
@@ -286,9 +292,45 @@ fun ModelSettings() {
                 }
             },
             modifier = Modifier.clickable(
-                enabled = !active.englishOnly && active.format != ModelFormat.GGUF
+                enabled = !active.englishOnly && active.engine != ModelEngine.PARAKEET_CPP
             ) { menuOpen = true }
         )
+
+        // only for models that can translate speech (Canary): which language the words come out in
+        if (active.canTranslate) {
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.translate_option)) },
+                supportingContent = {
+                    Text(
+                        LANGUAGES.firstOrNull { it.first == translateTo && translateTo.isNotEmpty() }?.second
+                            ?: stringResource(R.string.translate_off)
+                    )
+                },
+                leadingContent = { Icon(Icons.Outlined.Translate, null) },
+                trailingContent = {
+                    Box {
+                        DropdownMenu(expanded = translateMenuOpen, onDismissRequest = { translateMenuOpen = false }) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.translate_off)) },
+                                onClick = {
+                                    translateTo = ""
+                                    prefs.edit().remove(TRANSLATE_KEY).apply()
+                                    translateMenuOpen = false
+                                }
+                            )
+                            LANGUAGES.filter { it.first != "auto" }.forEach { (code, label) ->
+                                DropdownMenuItem(text = { Text(label) }, onClick = {
+                                    translateTo = code
+                                    prefs.edit().putString(TRANSLATE_KEY, code).apply()
+                                    translateMenuOpen = false
+                                })
+                            }
+                        }
+                    }
+                },
+                modifier = Modifier.clickable { translateMenuOpen = true }
+            )
+        }
 
         ListItem(
             headlineContent = { Text(stringResource(R.string.model_add)) },

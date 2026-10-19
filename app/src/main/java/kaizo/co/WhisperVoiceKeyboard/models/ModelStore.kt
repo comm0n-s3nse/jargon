@@ -5,6 +5,8 @@ import android.content.SharedPreferences
 import android.net.Uri
 import android.provider.OpenableColumns
 import com.parakeetcpp.ParakeetContext
+import com.transcribecpp.TranscribeContext
+import kaizo.co.WhisperVoiceKeyboard.engine.TranscribeEngine
 import com.whispercpp.whisper.WhisperContext
 import kaizo.co.WhisperVoiceKeyboard.engine.ParakeetEngine
 import kaizo.co.WhisperVoiceKeyboard.engine.SpeechEngine
@@ -15,6 +17,7 @@ import java.io.File
 
 const val ACTIVE_MODEL_KEY = "active_model"
 const val LANGUAGE_KEY = "language"
+const val TRANSLATE_KEY = "translate_to" // empty: just transcribe
 
 // what the speech language setting offers, "auto" first
 val LANGUAGES = listOf(
@@ -66,16 +69,25 @@ data class ModelEntry(
     val fileName: String,
     val sizeBytes: Long,
     val builtIn: Boolean,
+    val engine: ModelEngine = ModelEngine.WHISPER_CPP, // which of the three engines runs it
+    val arch: String? = null, // a GGUF's general.architecture, e.g. "canary"
 ) {
     val label get() = labelFor(fileName)
     val format get() = if (fileName.endsWith(".gguf", ignoreCase = true)) ModelFormat.GGUF else ModelFormat.WHISPER_GGML
-    val englishOnly get() = format == ModelFormat.WHISPER_GGML && isEnglishOnly(fileName)
+    val englishOnly get() = engine == ModelEngine.WHISPER_CPP && isEnglishOnly(fileName)
+
+    /** Canary can translate speech into other languages; the setting only appears for such models. */
+    val canTranslate get() = arch == "canary"
 }
 
 class ModelImportException(message: String) : Exception(message)
 
 /** The models the keyboard can run: the one bundled in the APK plus any the user adds. */
 class ModelStore(private val context: Context) {
+    private companion object {
+        val headerCache = HashMap<String, GgufInfo?>()
+    }
+
     private val dir = File(context.filesDir, "models").apply { mkdirs() }
 
     fun list(): List<ModelEntry> {
@@ -84,13 +96,24 @@ class ModelStore(private val context: Context) {
             .map { ModelEntry("asset:$it", it, assetSize(it), builtIn = true) }
         val added = dir.listFiles { f -> f.isFile && (f.name.endsWith(".bin") || f.name.endsWith(".gguf")) }
             .orEmpty().sortedBy { it.name }
-            .map { ModelEntry("file:${it.name}", it.name, it.length(), builtIn = false) }
+            .mapNotNull { f ->
+                val info = headerOf(f)
+                val engine = engineFor(f.name, info) ?: return@mapNotNull null // not a model we can run
+                ModelEntry("file:${f.name}", f.name, f.length(), builtIn = false, engine = engine, arch = info?.architecture)
+            }
         return bundled + added
     }
 
-    /** Whether this phone can run [entry]: parakeet needs instructions older chips lack. */
+    // GGUF headers are read once per file, not on every redraw of the settings screen
+    private fun headerOf(file: File): GgufInfo? {
+        if (!file.name.endsWith(".gguf", ignoreCase = true)) return null
+        val key = "${file.name}:${file.length()}:${file.lastModified()}"
+        return headerCache.getOrPut(key) { Gguf.read(file) }
+    }
+
+    /** Whether this phone can run [entry]: the GGUF engines need instructions older chips lack. */
     fun runnable(entry: ModelEntry): Boolean =
-        entry.format != ModelFormat.GGUF || CpuFeatures.supportsParakeet()
+        entry.engine == ModelEngine.WHISPER_CPP || CpuFeatures.supportsGguf()
 
     /** The selected model, falling back to the bundled one if it was removed or cannot run here. */
     fun active(prefs: SharedPreferences): ModelEntry {
@@ -99,12 +122,14 @@ class ModelStore(private val context: Context) {
         return all.firstOrNull { it.id == saved && runnable(it) } ?: all.first()
     }
 
-    fun open(entry: ModelEntry): SpeechEngine =
-        if (entry.format == ModelFormat.GGUF) {
+    /** Loads [entry] with the engine its file needs. */
+    fun open(entry: ModelEntry, threads: Int = 4): SpeechEngine = when (entry.engine) {
+        ModelEngine.WHISPER_CPP -> WhisperEngine(openWhisper(entry))
+        ModelEngine.PARAKEET_CPP ->
             ParakeetEngine(ParakeetContext.load(File(dir, entry.fileName).absolutePath))
-        } else {
-            WhisperEngine(openWhisper(entry))
-        }
+        ModelEngine.TRANSCRIBE_CPP ->
+            TranscribeEngine(TranscribeContext.load(File(dir, entry.fileName).absolutePath, threads))
+    }
 
     fun openWhisper(entry: ModelEntry): WhisperContext =
         if (entry.builtIn) {
@@ -141,9 +166,9 @@ class ModelStore(private val context: Context) {
                     read += n
                 }
                 val format = detectFormat(head)
-                if (format == ModelFormat.GGUF && !CpuFeatures.supportsParakeet()) {
+                if (format == ModelFormat.GGUF && !CpuFeatures.supportsGguf()) {
                     throw ModelImportException(
-                        "This phone's processor is too old to run parakeet models. Whisper models work on every phone."
+                        "This phone's processor is too old to run these models. Whisper models work on every phone."
                     )
                 }
                 if (format == ModelFormat.UNKNOWN) {
@@ -176,8 +201,15 @@ class ModelStore(private val context: Context) {
                         }
                     }
                     val target = File(dir, name)
+                    if (format == ModelFormat.GGUF && engineFor(name, Gguf.read(part)) == null) {
+                        throw ModelImportException("That GGUF file's header could not be read, so it was not added.")
+                    }
                     if (!part.renameTo(target)) throw ModelImportException("Couldn't save the model.")
-                    ModelEntry("file:$name", name, target.length(), builtIn = false)
+                    val info = headerOf(target)
+                    ModelEntry(
+                        "file:$name", name, target.length(), builtIn = false,
+                        engine = engineFor(name, info) ?: ModelEngine.WHISPER_CPP, arch = info?.architecture
+                    )
                 } finally {
                     part.delete()
                 }
@@ -208,7 +240,11 @@ class ModelStore(private val context: Context) {
             val target = File(dir, fileName)
             target.delete()
             if (!part.renameTo(target)) throw ModelImportException("Couldn't save the model.")
-            ModelEntry("file:$fileName", fileName, target.length(), builtIn = false)
+            val info = headerOf(target)
+            ModelEntry(
+                "file:$fileName", fileName, target.length(), builtIn = false,
+                engine = engineFor(fileName, info) ?: ModelEngine.WHISPER_CPP, arch = info?.architecture
+            )
         } finally {
             part.delete()
         }

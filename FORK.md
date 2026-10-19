@@ -78,6 +78,17 @@ it can sit next to the Play or F-Droid app.
   download runs in Android's download manager and is checked against a SHA-256 pinned in the app
   (`models/Catalog.kt`) before it is used. This is the app's only use of the network, adds the
   `INTERNET` permission, and happens only after that tap.
+- **A third engine: transcribe.cpp** (MIT, pinned at v0.4.0), in a `:transcribe` module. It runs
+  the model families that neither whisper.cpp nor parakeet.cpp can, starting with **Canary**, which
+  also translates speech into other languages. A "Translate to" setting appears when the active
+  model can. **Which engine runs a model** is decided from the file: a `.bin` is whisper.cpp's; a
+  `.gguf` with a `parakeet.arch` key in its header is parakeet.cpp's (Fluid); any other `.gguf` goes
+  to transcribe.cpp. (`models/GgufInfo.kt` reads only the header, a few kilobytes, so classifying a
+  735 MB file is instant. transcribe.cpp's own Parakeet files also say `general.architecture =
+  parakeet`, which is why that field alone is not enough.) All three engines load side by side in
+  one process, each with its own statically linked ggml.
+- **A smaller built-in model.** Whisper tiny.en is bundled as 8-bit `q8_0`: 44 MB instead of 78,
+  about a fifth faster and 30 MB lighter in memory, with the same output on test speech.
 - **About and licenses screen** (Settings): credits for Kaiboard, whisper.cpp, Whisper, parakeet.cpp,
   ggml and the Android libraries, each with its license text, as BSD-3 and MIT require.
 
@@ -85,9 +96,9 @@ See `KAIBOARD.md` in the parent project for the plan these came from.
 
 ## Building
 
-Submodules: `git submodule update --init whisper.cpp parakeet.cpp`, then
+Submodules: `git submodule update --init whisper.cpp parakeet.cpp transcribe.cpp`, then
 `git -C parakeet.cpp submodule update --init --depth 1 third_party/ggml`. Then run
-`scripts/fetch-model.sh`, which downloads the built-in model (`ggml-tiny.en.bin`, not in git) and
+`scripts/fetch-model.sh`, which downloads the built-in model (`ggml-tiny.en-q8_0.bin`, 44 MB, not in git) and
 checks its SHA-256. Needs JDK 17, the Android SDK
 (platform 34), NDK 25.2.9519653 and CMake 3.22.1.
 
