@@ -1,11 +1,2 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <application>
-        <!-- debug builds only: lets adb load models and time them inside the real app -->
-        <receiver android:name="kaizo.co.WhisperVoiceKeyboard.SpikeReceiver" android:exported="true">
-            <intent-filter>
-                <action android:name="kaizo.spike.TRANSCRIBE" />
-            </intent-filter>
-        </receiver>
-    </application>
-</manifest>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" />

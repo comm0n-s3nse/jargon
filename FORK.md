@@ -57,8 +57,23 @@ it can sit next to the Play or F-Droid app.
   out of backups). One model is in memory at a time; a model that will not load falls back to
   the bundled one. The language can be set or auto-detected, and English-only models always get
   English. Behind this is a small `SpeechEngine` interface so other engines can be added.
+- **A second engine: parakeet.cpp.** GGUF models such as Fluid Speech Mini run through a
+  `:parakeet` module (JNI over parakeet.cpp's C API) behind the same `SpeechEngine` interface.
+  The model picker accepts either a whisper `.bin` or a parakeet `.gguf`, and a phone without the
+  needed CPU instructions is told so instead of crashing. Both engines load in one process.
+- **Tuner uses only the fast cores.** The efficiency cores of a big.LITTLE chip made 6 to 8
+  threads run 5 to 50 times slower than 4 on one phone, so the tuner counts only cores near the
+  fastest one's speed, treats anything within 10% of the best as a tie (fewest threads wins),
+  and, if a tune is ever interrupted, uses a safe default instead of retrying.
 
 See `KAIBOARD.md` in the parent project for the plan these came from.
+
+## Building
+
+Submodules: `git submodule update --init whisper.cpp parakeet.cpp`, then
+`git -C parakeet.cpp submodule update --init --depth 1 third_party/ggml`. Put a whisper model in
+`app/src/main/assets/models/` (the default is `ggml-tiny.en.bin`). Needs JDK 17, the Android SDK
+(platform 34), NDK 25.2.9519653 and CMake 3.22.1.
 
 ## Credits
 

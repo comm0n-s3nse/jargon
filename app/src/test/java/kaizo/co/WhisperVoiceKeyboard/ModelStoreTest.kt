@@ -51,3 +51,32 @@ class ModelStoreTest {
         assertEquals("auto", languageFor("ggml-tiny.bin", "auto"))
     }
 }
+
+class CpuFeaturesTest {
+    private val thinkPhone = """
+        processor : 0
+        BogoMIPS  : 38.40
+        Features  : fp asimd evtstrm aes pmull sha1 sha2 crc32 atomics fphp asimdhp cpuid asimdrdm asimddp i8mm bti
+        CPU implementer : 0x41
+    """.trimIndent()
+
+    @Test
+    fun readsTheFeatureList() {
+        val features = kaizo.co.WhisperVoiceKeyboard.models.parseCpuFeatures(thinkPhone)
+        assertTrue("asimddp" in features)
+        assertTrue("i8mm" in features)
+        assertFalse("sve" in features)
+    }
+
+    @Test
+    fun anOldPhoneWithoutDotProductHasNone() {
+        val old = "Features : fp asimd evtstrm aes pmull sha1 sha2 crc32 cpuid"
+        assertFalse("asimddp" in kaizo.co.WhisperVoiceKeyboard.models.parseCpuFeatures(old))
+    }
+
+    @Test
+    fun missingOrUnreadableInfoIsEmptyNotACrash() {
+        assertTrue(kaizo.co.WhisperVoiceKeyboard.models.parseCpuFeatures("").isEmpty())
+        assertTrue(kaizo.co.WhisperVoiceKeyboard.models.parseCpuFeatures("processor : 0").isEmpty())
+    }
+}

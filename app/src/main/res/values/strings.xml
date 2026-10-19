@@ -45,10 +45,13 @@
     <string name="model_multilingual">Multilingual</string>
     <string name="model_remove">Remove</string>
     <string name="model_add">Add a model file</string>
-    <string name="model_add_hint">A whisper.cpp .bin file, such as ggml-base-q5_1.bin. Copied into the app; nothing is uploaded.</string>
+    <string name="model_add_hint">A whisper .bin (such as ggml-base-q5_1.bin) or a parakeet .gguf. Copied into the app; nothing is uploaded.</string>
     <string name="model_switch_note">The keyboard switches to it the next time it opens.</string>
     <string name="language_option">Language</string>
     <string name="language_english_only">English only for this model</string>
     <string name="behavior_header">Behavior</string>
     <string name="test_header">Test</string>
+    <string name="model_parakeet">Parakeet, needs about 0.5 GB of RAM</string>
+    <string name="model_unsupported">Not supported on this phone</string>
+    <string name="language_model_decides">Chosen by the model</string>
 </resources>

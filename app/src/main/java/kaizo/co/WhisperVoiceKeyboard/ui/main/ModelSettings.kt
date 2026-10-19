@@ -97,7 +97,8 @@ fun ModelSettings() {
                 supportingContent = {
                     Text(
                         "${model.sizeBytes shr 20} MB · " + when {
-                            model.format == ModelFormat.GGUF -> "Parakeet"
+                            !store.runnable(model) -> stringResource(R.string.model_unsupported)
+                            model.format == ModelFormat.GGUF -> stringResource(R.string.model_parakeet)
                             model.englishOnly -> stringResource(R.string.model_english_only)
                             else -> stringResource(R.string.model_multilingual)
                         }
@@ -116,7 +117,7 @@ fun ModelSettings() {
                         }) { Text(stringResource(R.string.model_remove)) }
                     }
                 },
-                modifier = Modifier.clickable {
+                modifier = Modifier.clickable(enabled = store.runnable(model)) {
                     prefs.edit().putString(ACTIVE_MODEL_KEY, model.id).apply()
                     activeId = model.id
                     note = context.getString(R.string.model_switch_note)
@@ -135,8 +136,11 @@ fun ModelSettings() {
             headlineContent = { Text(stringResource(R.string.language_option)) },
             supportingContent = {
                 Text(
-                    if (active.englishOnly) stringResource(R.string.language_english_only)
-                    else LANGUAGES.firstOrNull { it.first == language }?.second ?: language
+                    when {
+                        active.format == ModelFormat.GGUF -> stringResource(R.string.language_model_decides)
+                        active.englishOnly -> stringResource(R.string.language_english_only)
+                        else -> LANGUAGES.firstOrNull { it.first == language }?.second ?: language
+                    }
                 )
             },
             leadingContent = { Icon(Icons.Outlined.Language, null) },
@@ -153,7 +157,9 @@ fun ModelSettings() {
                     }
                 }
             },
-            modifier = Modifier.clickable(enabled = !active.englishOnly) { menuOpen = true }
+            modifier = Modifier.clickable(
+                enabled = !active.englishOnly && active.format != ModelFormat.GGUF
+            ) { menuOpen = true }
         )
         note?.let { Text(it, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 16.dp)) }
     }

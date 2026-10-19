@@ -18,8 +18,9 @@ set(PARAKEET_WITH_CED OFF CACHE BOOL "" FORCE)
 set(PARAKEET_WITH_VOICEDETECT OFF CACHE BOOL "" FORCE)
 set(GGML_NATIVE OFF CACHE BOOL "" FORCE)
 set(GGML_OPENMP OFF CACHE BOOL "" FORCE)
-# dot-product instructions are on essentially every 64-bit phone since 2019; i8mm is faster
-# but would crash older chips, so it needs runtime dispatch before it can be turned on
+# Dot-product and half-precision instructions are on essentially every 64-bit phone since 2019.
+# The i8mm build was measured on a OnePlus 15: only ~6% faster on 7.5 s of speech and no
+# faster on 22 s, so a second build with runtime dispatch is not worth shipping.
 set(GGML_CPU_ARM_ARCH "armv8.2-a+dotprod+fp16" CACHE STRING "" FORCE)
 
 # parakeet.cpp's CMakeLists assumes it is the top-level project and finds its own files through

@@ -88,11 +88,15 @@ class ModelStore(private val context: Context) {
         return bundled + added
     }
 
-    /** The selected model, falling back to the bundled one if it was removed. */
+    /** Whether this phone can run [entry]: parakeet needs instructions older chips lack. */
+    fun runnable(entry: ModelEntry): Boolean =
+        entry.format != ModelFormat.GGUF || CpuFeatures.supportsParakeet()
+
+    /** The selected model, falling back to the bundled one if it was removed or cannot run here. */
     fun active(prefs: SharedPreferences): ModelEntry {
         val all = list()
         val saved = prefs.getString(ACTIVE_MODEL_KEY, null)
-        return all.firstOrNull { it.id == saved } ?: all.first()
+        return all.firstOrNull { it.id == saved && runnable(it) } ?: all.first()
     }
 
     fun open(entry: ModelEntry): SpeechEngine =
@@ -137,6 +141,11 @@ class ModelStore(private val context: Context) {
                     read += n
                 }
                 val format = detectFormat(head)
+                if (format == ModelFormat.GGUF && !CpuFeatures.supportsParakeet()) {
+                    throw ModelImportException(
+                        "This phone's processor is too old to run parakeet models. Whisper models work on every phone."
+                    )
+                }
                 if (format == ModelFormat.UNKNOWN) {
                     throw ModelImportException(
                         "That isn't a model file this keyboard can run (a whisper.cpp .bin or a parakeet .gguf)."
