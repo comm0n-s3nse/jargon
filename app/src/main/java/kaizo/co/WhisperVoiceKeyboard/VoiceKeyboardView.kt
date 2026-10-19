@@ -9,7 +9,6 @@ import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.fillMaxHeight
 import kotlin.math.sin
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.runtime.mutableStateListOf
@@ -109,7 +108,8 @@ private const val LANGUAGE_DRAG_MM = 8f // slide left on the mic: quick language
 private const val KEYBOARD_FLICK_MM = 8f // flick up on enter: previous keyboard
 private const val HOLD_FOR_SETTINGS_MS = 300L // a still finger on enter this long opens settings
 private const val HINT_SIZE_DP = 10
-private const val HINT_OFFSET_DP = 7
+private const val HINT_OFFSET_X_DP = 9 // from the icon's corner out toward the key's corner
+private const val HINT_OFFSET_Y_DP = 6
 private const val HINT_ALPHA = 0.55f
 
 private val CancelRed = Color(0xFFD32F2F)
@@ -384,7 +384,8 @@ private fun EnterButton(
             ButtonDefaults.buttonColors()
         },
     ) {
-        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxHeight()) {
+        // sized by the 24 dp icon (never fillMaxHeight: the button has no ceiling and would take the screen)
+        Box(contentAlignment = Alignment.Center) {
             Icon(
                 Icons.AutoMirrored.Outlined.KeyboardReturn,
                 stringResource(R.string.return_button),
@@ -408,7 +409,7 @@ private fun EnterButton(
                     stringResource(R.string.settings_button),
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .offset(x = HINT_OFFSET_DP.dp, y = (-HINT_OFFSET_DP).dp)
+                        .offset(x = HINT_OFFSET_X_DP.dp, y = (-HINT_OFFSET_Y_DP).dp)
                         .size(HINT_SIZE_DP.dp)
                         .graphicsLayer { alpha = HINT_ALPHA * (1f - up) }
                 )
