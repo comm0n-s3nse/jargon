@@ -200,6 +200,8 @@ class MainScreenViewModel(private val application: Application) : ViewModel() {
 
     override fun onCleared() {
         runBlocking {
+            // the recorder thread outlives the screen, so stop it before freeing the model
+            recorder.stopRecording()
             whisperContext?.release()
             whisperContext = null
             stopPlayback()

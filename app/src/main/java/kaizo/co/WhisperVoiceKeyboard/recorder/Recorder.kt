@@ -22,7 +22,7 @@ class Recorder {
     suspend fun startRecording(
         outputFile: File,
         onError: (Exception) -> Job,
-        transcriptionCallback: (ShortArray) -> Unit
+        transcriptionCallback: ((ShortArray) -> Unit)? = null
     ) =
         withContext(scope.coroutineContext) {
             recorder = AudioRecordThread(outputFile, onError, transcriptionCallback)
@@ -40,7 +40,7 @@ class Recorder {
 private class AudioRecordThread(
     private val outputFile: File,
     private val onError: (Exception) -> Job,
-    private val transcriptionCallback: (ShortArray) -> Unit
+    private val transcriptionCallback: ((ShortArray) -> Unit)?
 ) :
     Thread("AudioRecorder") {
     private var quit = AtomicBoolean(false)
@@ -66,23 +66,33 @@ private class AudioRecordThread(
             try {
                 audioRecord.startRecording()
 
-                val allData = mutableListOf<Short>()
+                // primitive growable buffer; a boxed list copied on every read made long
+                // recordings quadratically slower
+                var allData = ShortArray(16000 * 30)
+                var size = 0
+                var lastCallback = 0L
 
                 while (!quit.get()) {
                     val read = audioRecord.read(buffer, 0, buffer.size)
                     if (read > 0) {
-                        for (i in 0 until read) {
-                            allData.add(buffer[i])
+                        if (size + read > allData.size) {
+                            allData = allData.copyOf(maxOf(allData.size * 2, size + read))
                         }
+                        System.arraycopy(buffer, 0, allData, size, read)
+                        size += read
                     } else {
                         throw java.lang.RuntimeException("audioRecord.read returned $read")
                     }
-                    // run transcription callback
-                    transcriptionCallback(allData.toShortArray())
+                    // run transcription callback, at most 4 times a second
+                    val now = System.currentTimeMillis()
+                    if (transcriptionCallback != null && now - lastCallback >= 250) {
+                        lastCallback = now
+                        transcriptionCallback?.invoke(allData.copyOf(size))
+                    }
                 }
 
                 audioRecord.stop()
-                encodeWaveFile(outputFile, allData.toShortArray())
+                encodeWaveFile(outputFile, allData.copyOf(size))
             } finally {
                 audioRecord.release()
             }
