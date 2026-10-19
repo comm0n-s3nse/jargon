@@ -58,3 +58,13 @@ Colima shares only your home folder with Docker, so keep the scratch folder unde
 `docs/fdroid-recipe-draft.yml` to `metadata/<id>.yml`, add `config/categories.yml` from fdroiddata
 (plus empty files for the icons it names), then in a `python:3.12-slim` container with `git`:
 `pip install fdroidserver && fdroid lint <id>`.
+
+## Signing and the first release (2026-10-19)
+
+Release key: `kaiboard-out/keys/jargon-release.jks` (outside the repo), alias `jargon`; certificate
+SHA-256 `1e11697d15c8009d85021583a90a7113fc36c979d43138618f36039cf13c0448`. That fingerprint goes in
+the F-Droid recipe as `AllowedAPKSigningKeys` if reproducible builds are attempted, and IzzyOnDroid
+asks for it. Under emulation the build's own strip step produces unstripped libraries, so a release
+is finished by hand: unzip, `llvm-strip --strip-unneeded` on each `.so`, repack with `.so` and
+`resources.arsc` stored uncompressed, `zipalign -p 4`, `apksigner sign`. Result for 1.0: 45.8 MB
+with the model, 9.2 MB without.
