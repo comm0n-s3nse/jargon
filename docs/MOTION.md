@@ -1,0 +1,73 @@
+# Keyboard motion: what the keys do while you use them
+
+Decided 2026-10-18 from the live mockups (claude.ai/artifact/JGGsJ4ieK3GLJWJUJUh3Va). The
+**Material** profile below is the default and ships first. **Charge** is a second profile
+for an Appearance screen, still being designed; its notes are at the end so they are not lost.
+
+Everything is drawn inside the key's own `drawWithContent`, timed by the frame clock
+(`withFrameNanos`), as the ring already is. No new dependencies.
+
+## Material (default)
+
+Colours come from the theme: `primary` / `onPrimary` for the key and its ink,
+`errorContainer` / `onErrorContainer` and `error` for backspace. Nothing hard-coded.
+
+### Hold to record (press, charge, arm, hold, release)
+
+| Moment | What happens |
+|---|---|
+| Press | The ring grows from the thumb to the far corner over the 240 ms gate, 2.5 dp, in the key's ink colour (as today). |
+| Arm (ring reaches the edge) | The key fills from its container colour to the strong primary over 120 ms, the icon inverts to the on-colour, and one 1.5 dp edge pulse fades over 150 ms, timed with the vibration that already fires here. |
+| Hold | A solid filled key, steady, with a faint 1.5 dp outline that breathes between 25 % and 40 % opacity over about 1.5 s. No particles. |
+| Drag up to cancel | Unchanged: the key tints red past 10 mm, with the tick that already fires. |
+| Release | The fill eases back to the container colour over 160 ms while "Transcribing" shows. |
+
+### Recording in progress (tap mode)
+
+The key stays in the strong primary fill. Left to right inside it: the check icon, five
+level bars, the timer. The bars are 5 dp wide, 9 dp apart, 6 to 28 dp tall, rounded, in
+the on-colour, each driven by the **real microphone level** (RMS of each buffer the
+recorder reads, published as state; each bar gets its own phase so they do not move as one).
+Timer and icon unchanged.
+
+Needs: `Recorder.kt` computes RMS per `audioRecord.read` and exposes it (a `StateFlow<Float>`
+or a mutable state on the service). The recorder thread already has the buffer; this is a
+few lines and no extra allocation.
+
+### Backspace: drag left to undo
+
+| Moment | What happens |
+|---|---|
+| Drag | The backspace icon rolls left and fades out while an undo arrow rolls in from the right (28 dp travel, the same roll as enter's gear). The key tints from its container colour to `errorContainer`, icon ink to `onErrorContainer`, in step with the drag. |
+| Threshold (11 mm) | The key fills solid `error`, the icon turns white, and the tick fires. **No edge flash** on this key. |
+| Release past threshold | Undo, as today. |
+| Release before threshold | Rolls back. |
+
+Tap and hold-to-delete are unchanged.
+
+### Enter
+
+Unchanged (pull up: gear roll + tint + tick; slide left: keyboard icon roll + tint + tick).
+
+## Appearance screen (when Charge exists)
+
+A new settings screen, "Appearance", reached from the main page. One setting to start:
+the key profile, **Material** (default) or **Charge**. The code should be structured so a
+profile is one object the keys ask for their drawing (`KeyProfile`), which keeps the
+screen trivial to add. Until there is a second profile the screen is not shown.
+
+## Charge (not shipped; design notes)
+
+Charge is Material plus energy, not a different keyboard:
+
+- **Hold:** Material's fill and arming pulse, **plus** orbiting "electrons" around the
+  key as a thicker, glowing gradient border (the mockup's 1 to 2 px tails are too thin:
+  think a 4 to 6 dp luminous band with brighter heads travelling along it, ordered speed
+  with slight jitter). Arming flash: a white band the full perimeter, decaying ~200 ms.
+- **Recording:** the level-driven scope trace is kept and must be accurate to the live mic
+  level, but it must **not run under or over the timer or the icon**: confine it to the
+  middle band of the key between them.
+- **Backspace undo:** as in the mockup: red charge gathering from the right edge, icon
+  morph to undo, white edge flash at the threshold, snap-back on release.
+- Colours derive from the theme's primary (hue-shifted toward electric) rather than a fixed
+  blue, so it does not fight warm dynamic themes.
