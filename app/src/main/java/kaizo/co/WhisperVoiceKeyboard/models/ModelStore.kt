@@ -4,7 +4,11 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.net.Uri
 import android.provider.OpenableColumns
+import com.parakeetcpp.ParakeetContext
 import com.whispercpp.whisper.WhisperContext
+import kaizo.co.WhisperVoiceKeyboard.engine.ParakeetEngine
+import kaizo.co.WhisperVoiceKeyboard.engine.SpeechEngine
+import kaizo.co.WhisperVoiceKeyboard.engine.WhisperEngine
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -41,7 +45,14 @@ fun safeModelFileName(display: String?): String {
 }
 
 /** "ggml-small-q5_1.bin" -> "small-q5_1" */
-fun labelFor(fileName: String): String = fileName.removeSuffix(".bin").removePrefix("ggml-")
+fun labelFor(fileName: String): String =
+    fileName.removeSuffix(".bin").removeSuffix(".gguf").removePrefix("ggml-")
+
+/** Gives [name] the extension its format uses: .gguf for GGUF, .bin for whisper's ggml. */
+fun withExtensionFor(name: String, format: ModelFormat): String {
+    val stem = name.removeSuffix(".bin").removeSuffix(".gguf")
+    return stem + if (format == ModelFormat.GGUF) ".gguf" else ".bin"
+}
 
 /** whisper's English-only models are named like "tiny.en" or "small.en-q5_1". */
 fun isEnglishOnly(fileName: String): Boolean = Regex("""\.en([-_.]|$)""").containsMatchIn(labelFor(fileName))
@@ -57,7 +68,8 @@ data class ModelEntry(
     val builtIn: Boolean,
 ) {
     val label get() = labelFor(fileName)
-    val englishOnly get() = isEnglishOnly(fileName)
+    val format get() = if (fileName.endsWith(".gguf", ignoreCase = true)) ModelFormat.GGUF else ModelFormat.WHISPER_GGML
+    val englishOnly get() = format == ModelFormat.WHISPER_GGML && isEnglishOnly(fileName)
 }
 
 class ModelImportException(message: String) : Exception(message)
@@ -68,9 +80,9 @@ class ModelStore(private val context: Context) {
 
     fun list(): List<ModelEntry> {
         val bundled = (context.assets.list("models") ?: emptyArray())
-            .filter { it.endsWith(".bin") }
+            .filter { it.endsWith(".bin") || it.endsWith(".gguf") }
             .map { ModelEntry("asset:$it", it, assetSize(it), builtIn = true) }
-        val added = dir.listFiles { f -> f.isFile && f.name.endsWith(".bin") }
+        val added = dir.listFiles { f -> f.isFile && (f.name.endsWith(".bin") || f.name.endsWith(".gguf")) }
             .orEmpty().sortedBy { it.name }
             .map { ModelEntry("file:${it.name}", it.name, it.length(), builtIn = false) }
         return bundled + added
@@ -83,7 +95,14 @@ class ModelStore(private val context: Context) {
         return all.firstOrNull { it.id == saved } ?: all.first()
     }
 
-    fun open(entry: ModelEntry): WhisperContext =
+    fun open(entry: ModelEntry): SpeechEngine =
+        if (entry.format == ModelFormat.GGUF) {
+            ParakeetEngine(ParakeetContext.load(File(dir, entry.fileName).absolutePath))
+        } else {
+            WhisperEngine(openWhisper(entry))
+        }
+
+    fun openWhisper(entry: ModelEntry): WhisperContext =
         if (entry.builtIn) {
             WhisperContext.createContextFromAsset(context.assets, "models/${entry.fileName}")
         } else {
@@ -117,21 +136,20 @@ class ModelStore(private val context: Context) {
                     if (n < 0) break
                     read += n
                 }
-                when (detectFormat(head)) {
-                    ModelFormat.WHISPER_GGML -> {}
-                    ModelFormat.GGUF ->
-                        throw ModelImportException("That is a GGUF model, which this version can't run yet.")
-                    ModelFormat.UNKNOWN -> throw ModelImportException(
-                        "That doesn't look like a whisper.cpp model (expected a ggml .bin file)."
+                val format = detectFormat(head)
+                if (format == ModelFormat.UNKNOWN) {
+                    throw ModelImportException(
+                        "That isn't a model file this keyboard can run (a whisper.cpp .bin or a parakeet .gguf)."
                     )
                 }
                 if (size > 0 && dir.usableSpace < size + 50L * 1024 * 1024) {
                     throw ModelImportException("Not enough free storage for that model.")
                 }
-                var name = safeModelFileName(display)
+                val stem = withExtensionFor(safeModelFileName(display), format)
+                var name = stem
                 var n = 2
                 while (File(dir, name).exists()) {
-                    name = safeModelFileName(display).removeSuffix(".bin") + "-$n.bin"
+                    name = withExtensionFor(stem.removeSuffix(".bin").removeSuffix(".gguf") + "-$n", format)
                     n++
                 }
                 val part = File(dir, "$name.part")

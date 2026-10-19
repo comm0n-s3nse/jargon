@@ -3,6 +3,7 @@ package kaizo.co.WhisperVoiceKeyboard.ui.main
 import kaizo.co.WhisperVoiceKeyboard.models.languageFor
 import kaizo.co.WhisperVoiceKeyboard.models.ModelStore
 import kaizo.co.WhisperVoiceKeyboard.models.ModelEntry
+import kaizo.co.WhisperVoiceKeyboard.models.ModelFormat
 import kaizo.co.WhisperVoiceKeyboard.models.LANGUAGE_KEY
 import kaizo.co.WhisperVoiceKeyboard.tune.Threads
 import android.app.Application
@@ -67,12 +68,15 @@ class MainScreenViewModel(private val application: Application) : ViewModel() {
     // loads the model chosen in settings, replacing the one in memory if that changed
     private suspend fun ensureModel() = withContext(Dispatchers.IO) {
         val store = ModelStore(application)
-        val wanted = store.active(sharedPref)
+        // the test screen's benchmarks are whisper-only; a parakeet model falls back to the built-in
+        val wanted = store.active(sharedPref).let { chosen ->
+            if (chosen.format == ModelFormat.GGUF) store.list().first { it.builtIn } else chosen
+        }
         if (whisperContext != null && loadedModel?.id == wanted.id) return@withContext
         printMessage("Loading model ${wanted.fileName}...\n")
         whisperContext?.release()
         whisperContext = null
-        whisperContext = store.open(wanted)
+        whisperContext = store.openWhisper(wanted)
         loadedModel = wanted
         printMessage("Loaded model ${wanted.fileName}.\n")
     }

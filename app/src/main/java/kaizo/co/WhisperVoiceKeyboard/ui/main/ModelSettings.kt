@@ -34,6 +34,7 @@ import kaizo.co.WhisperVoiceKeyboard.R
 import kaizo.co.WhisperVoiceKeyboard.models.ACTIVE_MODEL_KEY
 import kaizo.co.WhisperVoiceKeyboard.models.LANGUAGES
 import kaizo.co.WhisperVoiceKeyboard.models.LANGUAGE_KEY
+import kaizo.co.WhisperVoiceKeyboard.models.ModelFormat
 import kaizo.co.WhisperVoiceKeyboard.models.ModelImportException
 import kaizo.co.WhisperVoiceKeyboard.models.ModelStore
 import kotlinx.coroutines.launch
@@ -95,10 +96,11 @@ fun ModelSettings() {
                 },
                 supportingContent = {
                     Text(
-                        "${model.sizeBytes shr 20} MB · " + stringResource(
-                            if (model.englishOnly) R.string.model_english_only
-                            else R.string.model_multilingual
-                        )
+                        "${model.sizeBytes shr 20} MB · " + when {
+                            model.format == ModelFormat.GGUF -> "Parakeet"
+                            model.englishOnly -> stringResource(R.string.model_english_only)
+                            else -> stringResource(R.string.model_multilingual)
+                        }
                     )
                 },
                 leadingContent = { RadioButton(selected = model.id == active.id, onClick = null) },

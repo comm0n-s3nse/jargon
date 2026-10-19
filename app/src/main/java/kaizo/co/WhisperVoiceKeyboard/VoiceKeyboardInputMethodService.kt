@@ -326,7 +326,7 @@ class VoiceKeyboardInputMethodService : InputMethodService(), LifecycleOwner,
                 note = getString(R.string.model_fallback)
                 store.open(entry)
             }
-            engine = WhisperEngine(context)
+            engine = context
             loadedModel = entry
             statusText = note
             printMessage("Loaded model ${entry.fileName}.\n")
