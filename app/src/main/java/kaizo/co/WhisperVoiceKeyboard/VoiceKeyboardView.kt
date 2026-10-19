@@ -12,6 +12,7 @@ import android.annotation.SuppressLint
 import android.os.SystemClock
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -352,6 +353,7 @@ private fun RecordButton(
     var cancelArmed by remember { mutableStateOf(false) }
     val ring = remember { Animatable(0f) }
     val uiScope = rememberCoroutineScope()
+    val haptic = LocalHapticFeedback.current
 
     Button(
         onClick = {}, enabled = enabled,
@@ -397,16 +399,27 @@ private fun RecordButton(
                     holdMode = false
                     cancelArmed = false
                     val grow = uiScope.launch {
+                        // timed by the frame clock itself: animateTo follows the system "animator duration
+                        // scale", and with animations switched off the ring never showed
                         ring.snapTo(0f)
-                        ring.animateTo(1f, tween(HOLD_GATE_MS.toInt(), easing = LinearEasing))
+                        val start = withFrameNanos { it }
+                        while (true) {
+                            val t = (withFrameNanos { it } - start) / 1_000_000f / HOLD_GATE_MS
+                            ring.snapTo(t.coerceAtMost(1f))
+                            if (t >= 1f) break
+                        }
                         holdMode = true
+                        // the ring has reached the edges: hold mode starts now
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                     }
                     var dragUp = 0f
                     while (true) {
                         val event = awaitPointerEvent(PointerEventPass.Initial)
                         val change = event.changes.firstOrNull { it.id == down.id } ?: break
                         dragUp = (down.position.y - change.position.y).coerceAtLeast(0f)
-                        cancelArmed = startedOnPress && dragUp >= cancelDistancePx
+                        val nowArmed = startedOnPress && dragUp >= cancelDistancePx
+                        if (nowArmed && !cancelArmed) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        cancelArmed = nowArmed
                         if (!change.pressed) break
                     }
                     grow.cancel()
