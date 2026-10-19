@@ -10,11 +10,16 @@ import java.io.File
  * fastest setting.
  */
 object Threads {
-    const val TUNED = "tuned_threads"
-    const val TUNED_MODEL = "tuned_model"
-
     // set while a tune is running; still set at the next start means the tune never finished
     const val TUNING_STARTED = "tuning_started"
+
+    // The best thread count depends on the model, so each model keeps its own tuned value and
+    // is timed once, however often you switch between them.
+    private const val TUNED_PREFIX = "tuned_threads_"
+
+    // older builds kept a single value for whichever model was tuned last
+    private const val LEGACY_TUNED = "tuned_threads"
+    private const val LEGACY_TUNED_MODEL = "tuned_model"
 
     // used until the first tune has run
     private const val UNTUNED_DEFAULT = 4
@@ -44,16 +49,34 @@ object Threads {
     /** What to use when there is no tuned value, or tuning could not finish. */
     fun safeDefault(totalCores: Int): Int = minOf(UNTUNED_DEFAULT, fastCores(totalCores))
 
-    // an explicit choice in settings wins, then the tuned value, then a safe guess
-    fun effective(prefs: SharedPreferences, userKey: String, cores: Int): Int {
+    /** The tuned thread count for [modelId], or 0 if that model has not been tuned. */
+    fun tuned(prefs: SharedPreferences, modelId: String): Int {
+        val own = prefs.getInt(TUNED_PREFIX + modelId, 0)
+        if (own > 0) return own
+        val legacy = prefs.getInt(LEGACY_TUNED, 0)
+        return if (legacy > 0 && prefs.getString(LEGACY_TUNED_MODEL, null) == modelId) legacy else 0
+    }
+
+    fun saveTuned(edit: SharedPreferences.Editor, modelId: String, threads: Int): SharedPreferences.Editor =
+        edit.putInt(TUNED_PREFIX + modelId, threads)
+
+    /** Forgets every model's tuned value, so each is timed again the next time it loads. */
+    fun forgetTuned(prefs: SharedPreferences, edit: SharedPreferences.Editor): SharedPreferences.Editor {
+        for (key in prefs.all.keys) {
+            if (key.startsWith(TUNED_PREFIX) || key == LEGACY_TUNED || key == LEGACY_TUNED_MODEL) edit.remove(key)
+        }
+        return edit
+    }
+
+    // an explicit choice in settings wins, then the model's tuned value, then a safe guess
+    fun effective(prefs: SharedPreferences, userKey: String, cores: Int, modelId: String? = null): Int {
         if (prefs.contains(userKey)) return prefs.getInt(userKey, cores).coerceIn(1, cores)
-        val tuned = prefs.getInt(TUNED, 0)
+        val tuned = if (modelId != null) tuned(prefs, modelId) else 0
         return (if (tuned > 0) tuned else safeDefault(cores)).coerceIn(1, cores)
     }
 
-    fun needsTuning(prefs: SharedPreferences, userKey: String, model: String): Boolean =
-        !prefs.contains(userKey) &&
-            (prefs.getInt(TUNED, 0) <= 0 || prefs.getString(TUNED_MODEL, null) != model)
+    fun needsTuning(prefs: SharedPreferences, userKey: String, modelId: String): Boolean =
+        !prefs.contains(userKey) && tuned(prefs, modelId) <= 0
 }
 
 /** Cores whose top speed (kHz) is within 70% of the fastest core's. */

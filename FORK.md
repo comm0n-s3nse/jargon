@@ -18,6 +18,11 @@ it can sit next to the Play or F-Droid app.
 - **The recorder outlived its screen.** `MainScreenViewModel.onCleared()` and the keyboard
   service's `onDestroy()` never stopped the `AudioRecorder` thread, so a swiped-away test screen
   kept recording at full CPU indefinitely.
+- **A deadlock closing the settings screen.** `MainScreenViewModel.onCleared()` ran `runBlocking` on
+  the main thread and, inside it, called `stopPlayback()`, which needs the main thread to run. The
+  main thread waited for itself, the screen froze, and Android reported "not responding" after
+  five seconds. It happened whenever the settings screen closed while the keyboard kept the app
+  alive. Cleanup there, and in the keyboard service's `onDestroy()`, no longer waits.
 - **Quadratic recording buffer.** `Recorder` kept samples in a boxed `MutableList<Short>` and
   copied the whole list on every read. It now uses a growable `ShortArray` and hands the
   transcription callback a copy at most four times a second.
@@ -65,6 +70,7 @@ it can sit next to the Play or F-Droid app.
   threads run 5 to 50 times slower than 4 on one phone, so the tuner counts only cores near the
   fastest one's speed, treats anything within 10% of the best as a tie (fewest threads wins),
   and, if a tune is ever interrupted, uses a safe default instead of retrying.
+  Each model keeps its own tuned value, so switching models does not tune again.
 - **Recommended models you can download.** Settings lists four, each with a plain name, its memory
   use and what it is good for: Whisper Tiny (built in), Fluid Speech Mini, Whisper Small, and
   Canary 1B (shown as coming soon: it needs an engine the app does not have yet). Tapping Download

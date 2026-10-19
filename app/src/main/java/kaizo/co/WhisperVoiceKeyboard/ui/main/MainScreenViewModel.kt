@@ -1,5 +1,6 @@
 package kaizo.co.WhisperVoiceKeyboard.ui.main
 
+import kotlinx.coroutines.CoroutineScope
 import kaizo.co.WhisperVoiceKeyboard.models.languageFor
 import kaizo.co.WhisperVoiceKeyboard.models.ModelStore
 import kaizo.co.WhisperVoiceKeyboard.models.ModelEntry
@@ -83,7 +84,7 @@ class MainScreenViewModel(private val application: Application) : ViewModel() {
 
     fun benchmark() = viewModelScope.launch {
         val nThreads =
-            Threads.effective(sharedPref, application.getString(R.string.num_threads), maxThreads)
+            Threads.effective(sharedPref, application.getString(R.string.num_threads), maxThreads, ModelStore(application).active(sharedPref).id)
         runBenchmark(nThreads)
     }
 
@@ -123,7 +124,7 @@ class MainScreenViewModel(private val application: Application) : ViewModel() {
 
     private suspend fun transcribeAudio(data: FloatArray) {
         val nThreads =
-            Threads.effective(sharedPref, application.getString(R.string.num_threads), maxThreads)
+            Threads.effective(sharedPref, application.getString(R.string.num_threads), maxThreads, loadedModel?.id)
         printMessage("Transcribing data...\n")
         val start = System.currentTimeMillis()
         val language = languageFor(
@@ -203,12 +204,25 @@ class MainScreenViewModel(private val application: Application) : ViewModel() {
     }
 
     override fun onCleared() {
-        runBlocking {
-            // the recorder thread outlives the screen, so stop it before freeing the model
+        // This runs on the main thread, so it must not wait for anything. The original blocked
+        // here in runBlocking and then called stopPlayback(), which needs the main thread to run:
+        // a deadlock that froze the app until Android gave up on it five seconds later, every time
+        // the settings screen closed while the keyboard kept the app alive.
+        val context = whisperContext
+        whisperContext = null
+        mediaPlayer?.let {
+            try {
+                it.stop()
+            } catch (e: IllegalStateException) {
+                // never started
+            }
+            it.release()
+        }
+        mediaPlayer = null
+        // the recorder thread and the model outlive the screen, so free them, off the main thread
+        CoroutineScope(Dispatchers.IO).launch {
             recorder.stopRecording()
-            whisperContext?.release()
-            whisperContext = null
-            stopPlayback()
+            context?.release()
         }
     }
 

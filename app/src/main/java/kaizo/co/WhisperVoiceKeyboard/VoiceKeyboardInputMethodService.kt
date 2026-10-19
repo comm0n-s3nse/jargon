@@ -138,10 +138,16 @@ class VoiceKeyboardInputMethodService : InputMethodService(), LifecycleOwner,
 
     override fun onDestroy() {
         super.onDestroy()
-        runBlocking {
-            if (isRecording) recorder.stopRecording()
-            engine?.release()
-            engine = null
+        // This runs on the main thread, so it must not wait: a transcription pass in progress can
+        // hold the engine for seconds, and the system gives the main thread five before it calls
+        // the app unresponsive. Detach what needs freeing and let it finish on its own.
+        val leaving = engine
+        val wasRecording = isRecording
+        engine = null
+        job.cancel()
+        CoroutineScope(Dispatchers.IO).launch {
+            if (wasRecording) recorder.stopRecording()
+            leaving?.release()
         }
         handleLifecycleEvent(Lifecycle.Event.ON_DESTROY)
     }
@@ -266,7 +272,7 @@ class VoiceKeyboardInputMethodService : InputMethodService(), LifecycleOwner,
     }
 
     private fun threads(): Int = sharedPref?.let {
-        Threads.effective(it, application.getString(R.string.num_threads), maxThreads)
+        Threads.effective(it, application.getString(R.string.num_threads), maxThreads, loadedModel?.id)
     } ?: maxThreads
 
     // 3 s of speech-like sound; whisper's cost barely depends on the content
@@ -344,8 +350,7 @@ class VoiceKeyboardInputMethodService : InputMethodService(), LifecycleOwner,
             // the last tune never finished: the process was killed or crashed partway. Do not
             // try again, which could loop; use the cautious default instead.
             val safe = Threads.safeDefault(maxThreads)
-            prefs.edit().putInt(Threads.TUNED, safe).putString(Threads.TUNED_MODEL, id)
-                .remove(Threads.TUNING_STARTED).apply()
+            Threads.saveTuned(prefs.edit(), id, safe).remove(Threads.TUNING_STARTED).apply()
             printMessage("Tuning was interrupted last time; using $safe threads\n")
             return
         }
@@ -370,8 +375,7 @@ class VoiceKeyboardInputMethodService : InputMethodService(), LifecycleOwner,
                 printMessage("tune: $t threads -> $fastest ms\n")
                 fastest
             }
-            prefs.edit().putInt(Threads.TUNED, best).putString(Threads.TUNED_MODEL, id)
-                .remove(Threads.TUNING_STARTED).apply()
+            Threads.saveTuned(prefs.edit(), id, best).remove(Threads.TUNING_STARTED).apply()
             printMessage("Tuned to $best threads in ${SystemClock.elapsedRealtime() - started} ms\n")
             statusText = getString(R.string.tuned_done, best)
             scope.launch {

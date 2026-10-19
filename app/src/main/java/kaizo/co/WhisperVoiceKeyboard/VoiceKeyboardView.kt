@@ -86,7 +86,7 @@ private const val UNDO_DRAG_MAX_MM = 22f
 private const val CANCEL_DRAG_MM = 10f
 
 // backspace, enter and the cancel key share one width, so they cannot drift apart
-private const val SIDE_KEY_WIDTH_MM = 8f
+private const val SIDE_KEY_WIDTH_MM = 9f
 
 // how far to pull enter up before releasing opens settings
 private const val SETTINGS_DRAG_MM = 8f

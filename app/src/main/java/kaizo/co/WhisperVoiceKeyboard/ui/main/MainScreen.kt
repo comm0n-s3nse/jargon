@@ -1,5 +1,6 @@
 package kaizo.co.WhisperVoiceKeyboard.ui.main
 
+import kaizo.co.WhisperVoiceKeyboard.models.ModelStore
 import androidx.compose.material.icons.outlined.Info
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.mutableIntStateOf
@@ -90,11 +91,13 @@ private fun MainScreen(
     val threadsStr = stringResource(R.string.num_threads)
     val casualMode = stringResource(R.string.casual_mode)
     val pauseMediaStr = stringResource(R.string.pause_media)
+    val appContext = LocalContext.current
+    val activeModelId = remember { ModelStore(appContext).active(sharedPref).id }
     var nThreads by remember {
-        mutableFloatStateOf(Threads.effective(sharedPref, threadsStr, maxThreads).toFloat())
+        mutableFloatStateOf(Threads.effective(sharedPref, threadsStr, maxThreads, activeModelId).toFloat())
     }
     var threadsManual by remember { mutableStateOf(sharedPref.contains(threadsStr)) }
-    var tunedThreads by remember { mutableIntStateOf(sharedPref.getInt(Threads.TUNED, 0)) }
+    var tunedThreads by remember { mutableIntStateOf(Threads.tuned(sharedPref, activeModelId)) }
     var lowercase by remember {
         mutableStateOf(
             sharedPref.getBoolean(casualMode, false)
@@ -214,14 +217,13 @@ private fun MainScreen(
                                 TextButton(onClick = {
                                     with(sharedPref.edit()) {
                                         remove(threadsStr)
-                                        remove(Threads.TUNED)
-                                        remove(Threads.TUNED_MODEL)
+                                        Threads.forgetTuned(sharedPref, this)
                                         remove(Threads.TUNING_STARTED)
                                         apply()
                                     }
                                     threadsManual = false
                                     tunedThreads = 0
-                                    nThreads = Threads.effective(sharedPref, threadsStr, maxThreads).toFloat()
+                                    nThreads = Threads.effective(sharedPref, threadsStr, maxThreads, activeModelId).toFloat()
                                 }) { Text(stringResource(R.string.threads_reset)) }
                             }
                         }
