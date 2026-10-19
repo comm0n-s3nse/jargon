@@ -41,6 +41,24 @@ class SpokenTextTest {
     }
 
     @Test
+    fun hyphenJoinsWordsAndAttaches() {
+        assertEquals("A well-known trick", SpokenText.punctuation("A well hyphen known trick").text)
+        assertEquals("A well-known trick", SpokenText.punctuation("A well, dash, known trick").text)
+        val r = SpokenText.punctuation("hyphen known")
+        assertEquals("-known", r.text)
+        assertTrue(r.attachLeft)
+        assertEquals("-", SpokenText.punctuation("Dash.").text)
+        assertEquals("Wait semi colon then go", SpokenText.punctuation("Wait semi colon then go").text) // only at the edges
+    }
+
+    @Test
+    fun chatShorthandIsLowercase() {
+        assertEquals("That was great lol", SpokenText.chatCase("That was great LOL"))
+        assertEquals("imo it works", SpokenText.chatCase("IMO it works"))
+        assertEquals("The LOLA bus", SpokenText.chatCase("The LOLA bus"))
+    }
+
+    @Test
     fun spokenEmojiBecomeEmoji() {
         assertEquals("See you soon 🙂", SpokenText.emoji("See you soon smiley face."))
         assertEquals("I forgot again 🤦", SpokenText.emoji("I forgot again facepalm"))

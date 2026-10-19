@@ -39,8 +39,12 @@ val CATALOG = listOf(
         // 8-bit quantized: 44 MB instead of 78, a fifth faster, 30 MB less memory, same output on test speech
         file = "ggml-tiny.en-q8_0.bin", ramMb = 180, builtIn = true,
         summary = "English only",
-        about = "The built-in model: small and quick, English only.",
+        about = "Small and quick, English only. Built in when the app ships with a model; otherwise the first one to get.",
         credit = "Whisper by OpenAI, MIT license, converted for whisper.cpp.",
+        // the same file scripts/fetch-model.sh bundles; a copy built without it downloads it here
+        url = "$HF/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en-q8_0.bin",
+        sha256 = "5bc2b3860aa151a4c6e7bb095e1fcce7cf12c7b020ca08dcec0c6d018bb7dd94",
+        sizeBytes = 43_550_795,
     ),
     CatalogModel(
         id = "fluid-speech-mini", name = "Fluid Speech Mini", by = "FluidVoice",

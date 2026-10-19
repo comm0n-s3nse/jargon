@@ -87,7 +87,7 @@
     <string name="undo_button">Undo</string>
     <string name="spoken_punctuation">spoken_punctuation</string>
     <string name="spoken_punctuation_option">Spoken punctuation</string>
-    <string name="spoken_punctuation_description">Say “question mark”, “period” or “comma” at the start or end and it is typed as the mark.</string>
+    <string name="spoken_punctuation_description">Say “question mark”, “period” or “comma” at the start or end and it is typed as the mark. Tap for the list.</string>
     <string name="spoken_emoji">spoken_emoji</string>
     <string name="spoken_emoji_option">Spoken emoji</string>
     <string name="spoken_emoji_description">Say “smiley face”, “facepalm”, “thumbs up”… Tap for the whole list.</string>
@@ -96,4 +96,11 @@
     <string name="enter_hint_option">Gear on the enter key</string>
     <string name="enter_hint_description">A small reminder that holding enter opens settings.</string>
     <string name="coming_soon">More coming soon</string>
+    <string name="spoken_punctuation_list_title">Say it, get the mark</string>
+    <string name="spoken_punctuation_list_note">At the start or end of what you say. “Hyphen” between two words joins them.</string>
+    <string name="no_model_hint">Hold ⏎ to get a speech model</string>
+    <string name="welcome_title">Welcome to %1$s</string>
+    <string name="welcome_private">Everything you say is recognized on this phone. Nothing leaves it.</string>
+    <string name="welcome_no_model">This copy ships without a speech model, so every byte of the app is open source you can read, and you choose the model that fits your phone. Download one to start. The first is small and fine for most phones; the big ones translate.</string>
+    <string name="welcome_continue">Continue</string>
 </resources>

@@ -67,6 +67,13 @@ import kaizo.co.WhisperVoiceKeyboard.R
 fun MainScreen(viewModel: MainScreenViewModel) {
     var showAbout by remember { mutableStateOf(false) }
     var showAppearance by remember { mutableStateOf(false) }
+    // a copy that shipped without a model starts on the welcome screen until one is downloaded
+    val context = LocalContext.current
+    var needsModel by remember { mutableStateOf(ModelStore(context).list().isEmpty()) }
+    if (needsModel) {
+        WelcomeScreen(onContinue = { needsModel = ModelStore(context).list().isEmpty() })
+        return
+    }
     if (showAbout) {
         BackHandler { showAbout = false }
         AboutScreen(onBack = { showAbout = false })
@@ -107,7 +114,7 @@ private fun MainScreen(
     val casualMode = stringResource(R.string.casual_mode)
     val pauseMediaStr = stringResource(R.string.pause_media)
     val appContext = LocalContext.current
-    val activeModelId = remember { ModelStore(appContext).active(sharedPref).id }
+    val activeModelId = remember { ModelStore(appContext).active(sharedPref)?.id ?: "" }
     var nThreads by remember {
         mutableFloatStateOf(Threads.effective(sharedPref, threadsStr, maxThreads, activeModelId).toFloat())
     }
@@ -381,6 +388,7 @@ private fun AppearanceButton(onClick: () -> Unit) {
 private fun SpokenPunctuationItem(prefs: android.content.SharedPreferences) {
     val key = stringResource(R.string.spoken_punctuation)
     var on by remember { mutableStateOf(prefs.getBoolean(key, true)) }
+    var list by remember { mutableStateOf(false) }
     ListItem(
         headlineContent = { Text(stringResource(R.string.spoken_punctuation_option)) },
         supportingContent = { Text(stringResource(R.string.spoken_punctuation_description)) },
@@ -391,8 +399,27 @@ private fun SpokenPunctuationItem(prefs: android.content.SharedPreferences) {
                 prefs.edit().putBoolean(key, it).apply()
             })
         },
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { list = true }
     )
+    if (list) {
+        AlertDialog(
+            onDismissRequest = { list = false },
+            title = { Text(stringResource(R.string.spoken_punctuation_list_title)) },
+            text = {
+                Column {
+                    SpokenText.PUNCTUATION.forEach { m ->
+                        Text("${m.mark}   “${m.label}”", modifier = Modifier.padding(vertical = 2.dp))
+                    }
+                    Text(stringResource(R.string.spoken_punctuation_list_note), modifier = Modifier.padding(top = 12.dp))
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { list = false }) { Text(stringResource(R.string.net_ok)) }
+            }
+        )
+    }
 }
 
 @Composable

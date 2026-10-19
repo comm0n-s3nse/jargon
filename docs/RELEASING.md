@@ -1,5 +1,10 @@
 # Releasing
 
+One codebase, two shapes: run `scripts/fetch-model.sh` before building and the app ships with
+Whisper Tiny inside (GitHub Releases, Play; about 45 MB); skip it and the app ships without a model
+(F-Droid, IzzyOnDroid; about 8 MB) and opens on a welcome screen that downloads one. Nothing else
+differs: the app lists whatever is in `assets/models/` at build time.
+
 State of play, honestly: the app builds, installs and runs on two phones. What follows is the
 checklist for getting it to other people, with what has and has not been checked.
 

@@ -9,18 +9,19 @@ object SpokenText {
     /** [text] with the spoken marks replaced; [attachLeft] when it starts with punctuation, which belongs to the word before the cursor. */
     data class Result(val text: String, val attachLeft: Boolean)
 
-    private val PUNCTUATION = listOf(
-        "question mark" to "?",
-        "exclamation point" to "!",
-        "exclamation mark" to "!",
-        "full stop" to ".",
-        "period" to ".",
-        "comma" to ",",
-        "semicolon" to ";",
-        "semi colon" to ";",
-        "colon" to ":",
+    /** One mark, the way it is shown in the list, and the ways people say it (a regex). */
+    data class SpokenMark(val label: String, val said: String, val mark: String)
+
+    val PUNCTUATION = listOf(
+        SpokenMark("question mark", "question mark", "?"),
+        SpokenMark("exclamation point", "exclamation (?:point|mark)", "!"),
+        SpokenMark("period", "period|full stop", "."),
+        SpokenMark("comma", "comma", ","),
+        SpokenMark("semicolon", "semi ?colon", ";"),
+        SpokenMark("colon", "colon", ":"),
+        SpokenMark("hyphen", "hyphen|dash", "-"),
     )
-    private val phrases = PUNCTUATION.joinToString("|") { Regex.escape(it.first) }
+    private val phrases = PUNCTUATION.joinToString("|") { "(?:${it.said})" }
 
     // "Question mark." / "Period, do you need anything" at the very start
     private val leading = Regex("""^\s*($phrases)(?![\p{L}\p{N}])[.,!?]*\s*""", RegexOption.IGNORE_CASE)
@@ -31,8 +32,11 @@ object SpokenText {
     // the whole thing is one spoken mark
     private val only = Regex("""^\s*($phrases)(?![\p{L}\p{N}])[.,!?]*\s*$""", RegexOption.IGNORE_CASE)
 
+    // "well hyphen known" between two words joins them: the one mark that belongs in the middle
+    private val joiner = Regex("""(?<=[\p{L}\p{N}])[\s,]+(?:hyphen|dash)[\s,]+(?=[\p{L}\p{N}])""", RegexOption.IGNORE_CASE)
+
     private fun mark(word: String): String =
-        PUNCTUATION.first { it.first.equals(word, ignoreCase = true) }.second
+        PUNCTUATION.first { Regex(it.said, RegexOption.IGNORE_CASE).matches(word) }.mark
 
     /**
      * Spoken punctuation at the start or end becomes the character. Only there: "the period of
@@ -41,7 +45,7 @@ object SpokenText {
      */
     fun punctuation(text: String, capitalize: Boolean = true): Result {
         only.find(text)?.let { return Result(mark(it.groupValues[1]), attachLeft = true) }
-        var out = text
+        var out = joiner.replace(text, "-")
         var attachLeft = false
         leading.find(out)?.let { m ->
             val p = mark(m.groupValues[1])
@@ -51,7 +55,7 @@ object SpokenText {
             } else {
                 lowerFirst(rest)
             }
-            out = "$p $rest"
+            out = if (p == "-") "$p$rest" else "$p $rest"
             attachLeft = true
         }
         trailing.find(out)?.let { m ->
@@ -87,6 +91,8 @@ object SpokenText {
         SpokenEmoji("skull emoji", "skull emoji", "💀"),
         SpokenEmoji("rocket emoji", "rocket emoji", "🚀"),
         SpokenEmoji("hundred emoji", "hundred emoji", "💯"),
+        SpokenEmoji("sparkle emoji", "sparkles? emoji", "✨"),
+        SpokenEmoji("sun emoji", "sun emoji", "☀️"),
     )
     private val emojiPhrases = EMOJI.joinToString("|") { "(?:${it.said})" }
 
@@ -107,6 +113,12 @@ object SpokenText {
         if (out == text) return text
         return commaAfter.replace(commaBefore.replace(out, " "), "").trim()
     }
+
+    // chat shorthand reads as lowercase; the model writes it in capitals
+    private val slang = Regex("""\b(lol|lmao|rofl|imo|imho|tbh|idk|btw|smh|brb|afaik|ikr)\b""", RegexOption.IGNORE_CASE)
+
+    /** "LOL" and friends in lowercase, wherever they are. */
+    fun chatCase(text: String): String = slang.replace(text) { it.value.lowercase() }
 
     private fun upperFirst(s: String): String {
         val i = s.indexOfFirst { !it.isWhitespace() }

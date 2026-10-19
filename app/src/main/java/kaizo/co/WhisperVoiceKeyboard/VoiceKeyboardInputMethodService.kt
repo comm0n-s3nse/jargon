@@ -306,6 +306,16 @@ class VoiceKeyboardInputMethodService : InputMethodService(), LifecycleOwner,
         if (busy) return
         val store = ModelStore(application)
         val wanted = store.active(prefs)
+        if (wanted == null) {
+            // a copy that shipped without a model, before the first download: the key says what to do
+            engine?.release()
+            engine = null
+            loadedModel = null
+            canTranscribe = false
+            statusText = getString(R.string.no_model_hint)
+            return
+        }
+        if (statusText == getString(R.string.no_model_hint)) statusText = null
         val needsLoad = engine == null || loadedModel?.id != wanted.id
         val userKey = application.getString(R.string.num_threads)
         if (!needsLoad && !Threads.needsTuning(prefs, userKey, wanted.id)) return
@@ -341,7 +351,7 @@ class VoiceKeyboardInputMethodService : InputMethodService(), LifecycleOwner,
                 // a model that will not load must not leave the keyboard dead
                 Log.w(LOG_TAG, e)
                 sharedPref?.edit()?.remove(ACTIVE_MODEL_KEY)?.apply()
-                entry = store.list().first { it.builtIn }
+                entry = store.list().firstOrNull { it.builtIn } ?: throw e
                 note = getString(R.string.model_fallback)
                 store.open(entry)
             }
@@ -550,6 +560,7 @@ class VoiceKeyboardInputMethodService : InputMethodService(), LifecycleOwner,
                     text = spoken.text
                     attachLeft = spoken.attachLeft && replaced == null
                 }
+                text = SpokenText.chatCase(text)
             }
             // add text only if non-empty
             // avoids adding just a single space for empty messages

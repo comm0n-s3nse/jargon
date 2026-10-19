@@ -27,8 +27,9 @@ Builds:
       - apt-get install -y cmake
     gradle:
       - yes
-    # the built-in model is not in git; download it and check its SHA-256
-    prebuild: ../scripts/fetch-model.sh
+    # no prebuild: this build ships without a speech model, as the other Whisper keyboards on
+    # F-Droid do. The app offers the model list on first open and downloads with a pinned SHA-256.
+    # (scripts/fetch-model.sh bundles it for the GitHub and Play builds.)
     ndk: r25c
 
 AutoUpdateMode: Version

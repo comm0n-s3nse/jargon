@@ -76,7 +76,7 @@ fun ModelSettings() {
     val downloader = remember { ModelDownloader(context, store) }
     val scope = rememberCoroutineScope()
     var models by remember { mutableStateOf(store.list()) }
-    var activeId by remember { mutableStateOf(store.active(prefs).id) }
+    var activeId by remember { mutableStateOf(store.active(prefs)?.id ?: "") }
     var language by remember { mutableStateOf(prefs.getString(LANGUAGE_KEY, "en") ?: "en") }
     var menuOpen by remember { mutableStateOf(false) }
     var translateTo by remember { mutableStateOf(prefs.getString(TRANSLATE_KEY, "") ?: "") }
@@ -159,16 +159,16 @@ fun ModelSettings() {
         }
     }
 
-    val active = models.firstOrNull { it.id == activeId } ?: models.first()
+    val active = models.firstOrNull { it.id == activeId } ?: models.firstOrNull()
     val installed = models.associateBy { it.fileName }
     // A translating model (Canary) cannot detect what is spoken, so "auto" is not offered for it, and
     // both lists show only the languages the model's own file says it supports.
     val spoken = LANGUAGES.filter { (code, _) ->
-        if (active.canTranslate && code == "auto") false
-        else active.languages.isEmpty() || code == "auto" || code in active.languages
+        if (active?.canTranslate == true && code == "auto") false
+        else active == null || active.languages.isEmpty() || code == "auto" || code in active.languages
     }
     val written = LANGUAGES.filter { (code, _) ->
-        code != "auto" && (active.languages.isEmpty() || code in active.languages)
+        code != "auto" && (active == null || active.languages.isEmpty() || code in active.languages)
     }
 
     fun select(model: ModelEntry) {
@@ -178,9 +178,9 @@ fun ModelSettings() {
     }
 
     fun remove(model: ModelEntry) {
-        if (model.id == active.id) {
+        if (model.id == active?.id) {
             prefs.edit().remove(ACTIVE_MODEL_KEY).apply()
-            activeId = models.first { it.builtIn }.id
+            activeId = models.firstOrNull { it.builtIn }?.id ?: ""
         }
         store.remove(model)
         models = store.list()
@@ -210,7 +210,7 @@ fun ModelSettings() {
                             else stringResource(R.string.model_unsupported)
                         )
                     },
-                    leadingContent = { RadioButton(selected = entry.id == active.id, onClick = null) },
+                    leadingContent = { RadioButton(selected = entry.id == active?.id, onClick = null) },
                     trailingContent = {
                         if (entry.builtIn) {
                             Text(stringResource(R.string.model_built_in), fontSize = 14.sp)
@@ -273,7 +273,7 @@ fun ModelSettings() {
                         }
                     )
                 },
-                leadingContent = { RadioButton(selected = model.id == active.id, onClick = null) },
+                leadingContent = { RadioButton(selected = model.id == active?.id, onClick = null) },
                 trailingContent = {
                     if (!model.builtIn) {
                         TextButton(onClick = { remove(model) }, contentPadding = FlushEnd) { Text(stringResource(R.string.model_remove)) }
@@ -283,74 +283,77 @@ fun ModelSettings() {
             )
         }
 
-        ListItem(
-            headlineContent = {
-                Text(stringResource(if (active.canTranslate) R.string.language_spoken else R.string.language_option))
-            },
-            supportingContent = {
-                Text(
-                    when {
-                        active.engine == ModelEngine.PARAKEET_CPP -> stringResource(R.string.language_model_decides)
-                        active.englishOnly -> stringResource(R.string.language_english_only)
-                        // "auto" means English for a model that cannot detect the language
-                        else -> LANGUAGES.firstOrNull { it.first == (if (active.canTranslate && language == "auto") "en" else language) }?.second ?: language
-                    }
-                )
-            },
-            leadingContent = { Icon(Icons.Outlined.Language, null) },
-            trailingContent = {
-                Box {
-                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                        spoken.forEach { (code, label) ->
-                            DropdownMenuItem(text = { Text(label) }, onClick = {
-                                language = code
-                                prefs.edit().putString(LANGUAGE_KEY, code).apply()
-                                menuOpen = false
-                            })
-                        }
-                    }
-                }
-            },
-            modifier = Modifier.clickable(
-                enabled = !active.englishOnly && active.engine != ModelEngine.PARAKEET_CPP
-            ) { menuOpen = true }
-        )
-
-        // only for models that can translate speech (Canary): which language the words come out in
-        if (active.canTranslate) {
+        // the language rows need a model to describe; none is installed on a fresh unbundled copy
+        if (active != null) {
             ListItem(
-                headlineContent = { Text(stringResource(R.string.translate_option)) },
+                headlineContent = {
+                    Text(stringResource(if (active?.canTranslate == true) R.string.language_spoken else R.string.language_option))
+                },
                 supportingContent = {
                     Text(
-                        LANGUAGES.firstOrNull { it.first == translateTo && translateTo.isNotEmpty() }?.second
-                            ?: stringResource(R.string.translate_off)
+                        when {
+                            active.engine == ModelEngine.PARAKEET_CPP -> stringResource(R.string.language_model_decides)
+                            active.englishOnly -> stringResource(R.string.language_english_only)
+                            // "auto" means English for a model that cannot detect the language
+                            else -> LANGUAGES.firstOrNull { it.first == (if (active?.canTranslate == true && language == "auto") "en" else language) }?.second ?: language
+                        }
                     )
                 },
-                leadingContent = { Icon(Icons.Outlined.Translate, null) },
+                leadingContent = { Icon(Icons.Outlined.Language, null) },
                 trailingContent = {
                     Box {
-                        DropdownMenu(expanded = translateMenuOpen, onDismissRequest = { translateMenuOpen = false }) {
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.translate_off)) },
-                                onClick = {
-                                    translateTo = ""
-                                    prefs.edit().remove(TRANSLATE_KEY).apply()
-                                    translateMenuOpen = false
-                                }
-                            )
-                            written.forEach { (code, label) ->
+                        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                            spoken.forEach { (code, label) ->
                                 DropdownMenuItem(text = { Text(label) }, onClick = {
-                                    translateTo = code
-                                    prefs.edit().putString(TRANSLATE_KEY, code).apply()
-                                    rememberTranslateTarget(prefs, code)
-                                    translateMenuOpen = false
+                                    language = code
+                                    prefs.edit().putString(LANGUAGE_KEY, code).apply()
+                                    menuOpen = false
                                 })
                             }
                         }
                     }
                 },
-                modifier = Modifier.clickable { translateMenuOpen = true }
+                modifier = Modifier.clickable(
+                    enabled = !active.englishOnly && active.engine != ModelEngine.PARAKEET_CPP
+                ) { menuOpen = true }
             )
+
+            // only for models that can translate speech (Canary): which language the words come out in
+            if (active?.canTranslate == true) {
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.translate_option)) },
+                    supportingContent = {
+                        Text(
+                            LANGUAGES.firstOrNull { it.first == translateTo && translateTo.isNotEmpty() }?.second
+                                ?: stringResource(R.string.translate_off)
+                        )
+                    },
+                    leadingContent = { Icon(Icons.Outlined.Translate, null) },
+                    trailingContent = {
+                        Box {
+                            DropdownMenu(expanded = translateMenuOpen, onDismissRequest = { translateMenuOpen = false }) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.translate_off)) },
+                                    onClick = {
+                                        translateTo = ""
+                                        prefs.edit().remove(TRANSLATE_KEY).apply()
+                                        translateMenuOpen = false
+                                    }
+                                )
+                                written.forEach { (code, label) ->
+                                    DropdownMenuItem(text = { Text(label) }, onClick = {
+                                        translateTo = code
+                                        prefs.edit().putString(TRANSLATE_KEY, code).apply()
+                                        rememberTranslateTarget(prefs, code)
+                                        translateMenuOpen = false
+                                    })
+                                }
+                            }
+                        }
+                    },
+                    modifier = Modifier.clickable { translateMenuOpen = true }
+                )
+            }
         }
 
         ListItem(

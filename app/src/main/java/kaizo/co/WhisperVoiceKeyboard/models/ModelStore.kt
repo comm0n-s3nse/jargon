@@ -135,10 +135,13 @@ class ModelStore(private val context: Context) {
         entry.engine == ModelEngine.WHISPER_CPP || CpuFeatures.supportsGguf()
 
     /** The selected model, falling back to the bundled one if it was removed or cannot run here. */
-    fun active(prefs: SharedPreferences): ModelEntry {
+    /** The model to use, or null when none is installed (a copy that ships without one, before the first download). */
+    fun active(prefs: SharedPreferences): ModelEntry? {
         val all = list()
         val saved = prefs.getString(ACTIVE_MODEL_KEY, null)
-        return all.firstOrNull { it.id == saved && runnable(it) } ?: all.first()
+        return all.firstOrNull { it.id == saved && runnable(it) }
+            ?: all.firstOrNull { it.builtIn }
+            ?: all.firstOrNull { runnable(it) }
     }
 
     /** Loads [entry] with the engine its file needs. */

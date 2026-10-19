@@ -36,9 +36,10 @@ class CatalogTest {
     }
 
     @Test
-    fun onlyTheBuiltInModelHasNoDownload() {
-        assertTrue(CATALOG.filter { it.builtIn }.all { !it.downloadable })
-        assertTrue(CATALOG.filter { !it.builtIn }.all { it.downloadable })
+    fun everyModelCanBeDownloadedAndOneIsBuiltIn() {
+        // the built-in one is also downloadable: a copy that ships without it (F-Droid) gets it that way
+        assertTrue(CATALOG.all { it.downloadable && it.sha256 != null && it.sizeBytes > 0 })
+        assertEquals(1, CATALOG.count { it.builtIn })
     }
 
     @Test

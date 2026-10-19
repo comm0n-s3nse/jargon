@@ -70,9 +70,10 @@ class MainScreenViewModel(private val application: Application) : ViewModel() {
     private suspend fun ensureModel() = withContext(Dispatchers.IO) {
         val store = ModelStore(application)
         // the test screen's benchmarks are whisper-only; a model from another engine falls back to the built-in
-        val wanted = store.active(sharedPref).let { chosen ->
-            if (chosen.engine != ModelEngine.WHISPER_CPP) store.list().first { it.builtIn } else chosen
-        }
+        val chosen = store.active(sharedPref) ?: throw IllegalStateException(application.getString(R.string.no_model_hint))
+        val wanted = if (chosen.engine != ModelEngine.WHISPER_CPP) {
+            store.list().firstOrNull { it.builtIn && it.engine == ModelEngine.WHISPER_CPP } ?: chosen
+        } else chosen
         if (whisperContext != null && loadedModel?.id == wanted.id) return@withContext
         printMessage("Loading model ${wanted.fileName}...\n")
         whisperContext?.release()
@@ -84,7 +85,7 @@ class MainScreenViewModel(private val application: Application) : ViewModel() {
 
     fun benchmark() = viewModelScope.launch {
         val nThreads =
-            Threads.effective(sharedPref, application.getString(R.string.num_threads), maxThreads, ModelStore(application).active(sharedPref).id)
+            Threads.effective(sharedPref, application.getString(R.string.num_threads), maxThreads, ModelStore(application).active(sharedPref)?.id ?: "")
         runBenchmark(nThreads)
     }
 
