@@ -79,4 +79,8 @@
     <string name="net_body">Downloading a speech model is the only thing this app ever uses the internet for. It will fetch %1$s (%2$s) from %3$s. Nothing you say is ever sent anywhere.</string>
     <string name="net_ok">OK</string>
     <string name="language_spoken">I speak</string>
+    <string name="haptics_button">Turn on vibration feedback</string>
+    <string name="haptics_description">The keyboard buzzes when recording starts or is cancelled. Turn on touch feedback in system settings.</string>
+    <string name="keyboards_button">Keyboards</string>
+    <string name="keyboards_description">Choose which keyboards are enabled</string>
 </resources>

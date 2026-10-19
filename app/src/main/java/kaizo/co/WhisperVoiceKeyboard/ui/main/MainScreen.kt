@@ -22,6 +22,7 @@ import androidx.compose.material.icons.automirrored.outlined.NavigateNext
 import androidx.compose.material.icons.outlined.Keyboard
 import androidx.compose.material.icons.outlined.Memory
 import androidx.compose.material.icons.outlined.Mic
+import androidx.compose.material.icons.outlined.Vibration
 import androidx.compose.material.icons.outlined.Mood
 import androidx.compose.material.icons.outlined.Pause
 import androidx.compose.material.icons.outlined.PlayArrow
@@ -109,6 +110,8 @@ private fun MainScreen(
         )
     }
 
+    val setup = rememberSetupState()
+
     Scaffold(
         topBar = {
             TopAppBar(title = {
@@ -122,10 +125,14 @@ private fun MainScreen(
         LazyColumn(
             modifier = Modifier.padding(innerPadding)
         ) {
-            item { SectionHeader(stringResource(R.string.setup_header)) }
-            item { InputMethodButton() }
-            item { PermissionButton() }
+            // Setup shows only what still needs doing, and disappears once all of it is done.
+            // About then leads the page, followed by the system keyboard list.
+            if (setup.anyMissing) item { SectionHeader(stringResource(R.string.setup_header)) }
+            if (!setup.keyboardEnabled) item { InputMethodButton(enabled = false) }
+            if (!setup.micGranted) item { PermissionButton() }
+            if (!setup.hapticsOn) item { HapticsButton() }
             item { AboutButton(onAboutTapped) }
+            if (setup.keyboardEnabled) item { InputMethodButton(enabled = true) }
             item { ModelSettings() }
             item { SectionHeader(stringResource(R.string.behavior_header)) }
             item {
@@ -265,17 +272,72 @@ private fun MessageLog(log: String) {
     SelectionContainer(modifier = Modifier.padding(16.dp)) { Text(log) }
 }
 
+/** What the page checks again every time it comes back to the front (after a trip to system settings). */
+private class SetupState(val keyboardEnabled: Boolean, val micGranted: Boolean, val hapticsOn: Boolean) {
+    val anyMissing get() = !keyboardEnabled || !micGranted || !hapticsOn
+}
+
 @Composable
-private fun InputMethodButton() {
+private fun rememberSetupState(): SetupState {
+    val context = LocalContext.current
+    val owner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+    fun read() = SetupState(
+        keyboardEnabled = try {
+            val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+            imm.enabledInputMethodList.any { it.packageName == context.packageName }
+        } catch (e: Exception) {
+            true // unknown: say nothing rather than nag
+        },
+        micGranted = androidx.core.content.ContextCompat.checkSelfPermission(
+            context, android.Manifest.permission.RECORD_AUDIO
+        ) == android.content.pm.PackageManager.PERMISSION_GRANTED,
+        // the buzz on record, hold and cancel follows the system's touch feedback switch
+        hapticsOn = try {
+            Settings.System.getInt(context.contentResolver, Settings.System.HAPTIC_FEEDBACK_ENABLED, 1) != 0
+        } catch (e: Exception) {
+            true
+        },
+    )
+    var state by remember { mutableStateOf(read()) }
+    androidx.compose.runtime.DisposableEffect(owner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) state = read()
+        }
+        owner.lifecycle.addObserver(observer)
+        onDispose { owner.lifecycle.removeObserver(observer) }
+    }
+    return state
+}
+
+@Composable
+private fun HapticsButton() {
     val context = LocalContext.current
     ListItem(
-        headlineContent = { Text(stringResource(R.string.input_method_button)) },
+        headlineContent = { Text(stringResource(R.string.haptics_button)) },
+        leadingContent = { Icon(Icons.Outlined.Vibration, null) },
+        supportingContent = { Text(stringResource(R.string.haptics_description)) },
+        trailingContent = { Icon(Icons.AutoMirrored.Outlined.NavigateNext, null) },
+        modifier = Modifier.clickable(onClick = {
+            context.startActivity(Intent(Settings.ACTION_SOUND_SETTINGS))
+        })
+    )
+}
+
+@Composable
+private fun InputMethodButton(enabled: Boolean) {
+    val context = LocalContext.current
+    ListItem(
+        headlineContent = {
+            Text(stringResource(if (enabled) R.string.keyboards_button else R.string.input_method_button))
+        },
         leadingContent = {
             Icon(
                 Icons.Outlined.Keyboard, null
             )
         },
-        supportingContent = { Text(stringResource(R.string.input_method_description)) },
+        supportingContent = {
+            Text(stringResource(if (enabled) R.string.keyboards_description else R.string.input_method_description))
+        },
         trailingContent = {
             Icon(
                 Icons.AutoMirrored.Outlined.NavigateNext,

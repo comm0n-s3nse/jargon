@@ -117,13 +117,20 @@ class VoiceKeyboardView(private val service: VoiceKeyboardInputMethodService) :
             // true while a finger is down on a mic press that started the recording; the
             // cancel button would only get in the way, since dragging up cancels a hold
             var micHeld by remember { mutableStateOf(false) }
+            // set the moment a hold is thrown away, until the service has really stopped recording;
+            // without it the cancel (X) button shows for a blink between release and the stop
+            var cancelling by remember { mutableStateOf(false) }
+            LaunchedEffect(service.isRecording) { if (!service.isRecording) cancelling = false }
             Row(modifier = Modifier.padding(bottom = mmToDp(DEAD_SPACE_MM))) {
                 RecordButton(
                     enabled = service.canTranscribe,
                     isRecording = service.isRecording,
                     status = service.statusText,
                     onClick = service::toggleRecord,
-                    onCancel = service::cancelRecord,
+                    onCancel = {
+                        cancelling = true
+                        service.cancelRecord()
+                    },
                     onHoldChange = { micHeld = it },
                     modifier = Modifier
                         .weight(1f, true)
@@ -131,7 +138,7 @@ class VoiceKeyboardView(private val service: VoiceKeyboardInputMethodService) :
                         .heightIn(min = buttonHeight),
                     shape = shape,
                 )
-                if (service.isRecording && !micHeld) {
+                if (service.isRecording && !micHeld && !cancelling) {
                     CancelButton(
                         onClick = service::cancelRecord,
                         modifier = Modifier
