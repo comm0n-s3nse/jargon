@@ -8,7 +8,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material.icons.outlined.Settings
 import kotlin.math.sin
 import androidx.compose.ui.graphics.lerp
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material.icons.automirrored.outlined.Undo
@@ -90,7 +89,6 @@ private const val FILL_IN_MS = 120
 private const val FILL_OUT_MS = 160
 private const val PULSE_MS = 150 // the one edge pulse at arming
 private const val ROLL_DP = 28 // how far an icon travels when one rolls out and another rolls in
-private const val LIVE_MIX = 0.62f // how far from primary toward its container the live key goes
 
 // Sizes that matter to a thumb are in millimeters, not dp. A phone's "display size" setting
 // rescales dp, which shrank the keyboard and pushed it against the system nav buttons.
@@ -109,7 +107,8 @@ private const val LANGUAGE_DRAG_MM = 8f // slide left on the mic: quick language
 private const val KEYBOARD_DRAG_MM = 8f // slide left on enter: previous keyboard
 
 private val CancelRed = Color(0xFFD32F2F)
-private val UndoRed = Color(0xFFA32020) // the backspace key once an undo is armed
+private val UndoRed = CancelRed // the backspace key once an undo is armed: the same red as cancel
+private val LiveBlue = Color(0xFF4F7DF3) // the mic key while it is live (armed hold, or recording)
 
 @Composable
 private fun mmToPx(mm: Float): Float =
@@ -473,10 +472,10 @@ private fun RecordButton(
             breath = 0.25f + 0.15f * sin(t / 240f)
         }
     }
-    // the colours follow the theme: the resting key is primary; the live key sits part-way toward
-    // the container colour (the container itself is near-black in a dark theme), with white on it
-    val liveBg = lerp(scheme.primary, scheme.primaryContainer, LIVE_MIX)
-    val liveFg = if (liveBg.luminance() < 0.4f) Color.White else scheme.onPrimaryContainer
+    // the resting key follows the theme; the live key is one fixed blue with white on it, so the
+    // live state looks the same on every phone (the theme's container blue came out dull and dark)
+    val liveBg = LiveBlue
+    val liveFg = Color.White
     val container = if (cancelArmed) CancelRed else lerp(scheme.primary, liveBg, fill.value)
     val content = if (cancelArmed) Color.White else lerp(scheme.onPrimary, liveFg, fill.value)
     val ringColor = scheme.onPrimary
