@@ -19,6 +19,7 @@ data class GgufInfo(
     val architecture: String?,     // general.architecture: "canary", "whisper", "parakeet", ...
     val isParakeetCpp: Boolean,    // has parakeet.cpp's own "parakeet.arch" key
     val license: String?,          // general.license
+    val languages: List<String> = emptyList(), // general.languages: what the model can listen to
 )
 
 /**
@@ -65,6 +66,7 @@ object Gguf {
 
         var architecture: String? = null
         var license: String? = null
+        var languages: List<String> = emptyList()
         var parakeet = false
         for (i in 0 until keys) {
             val key = string(inp)
@@ -72,11 +74,12 @@ object Gguf {
             when {
                 key == "general.architecture" && type == TYPE_STRING -> architecture = string(inp)
                 key == "general.license" && type == TYPE_STRING -> license = string(inp)
+                key == "general.languages" && type == TYPE_ARRAY -> languages = stringArray(inp)
                 else -> skipValue(inp, type)
             }
             if (key == "parakeet.arch") parakeet = true
         }
-        return GgufInfo(architecture, parakeet, license)
+        return GgufInfo(architecture, parakeet, license, languages)
     }
 
     private const val TYPE_STRING = 8
@@ -101,6 +104,18 @@ object Gguf {
         val b = ByteArray(n.toInt())
         inp.readFully(b)
         return String(b, Charsets.UTF_8)
+    }
+
+    // an array of strings; anything else in an array is skipped and gives an empty list
+    private fun stringArray(inp: DataInputStream): List<String> {
+        val elem = u32(inp).toInt()
+        val n = u64(inp)
+        if (n < 0 || n > MAX_KEYS) throw IllegalStateException("bad array length")
+        if (elem != TYPE_STRING) {
+            for (i in 0 until n) skipValue(inp, elem)
+            return emptyList()
+        }
+        return List(n.toInt()) { string(inp) }
     }
 
     private fun skip(inp: DataInputStream, n: Long) {

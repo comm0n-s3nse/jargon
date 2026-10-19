@@ -65,6 +65,13 @@ class GgufInfoTest {
     }
 
     @Test
+    fun readsTheLanguagesAModelSupports() {
+        assertEquals(listOf("bg", "hr", "cs"), read(canary)!!.languages)
+        assertEquals(listOf("en", "pt", "pl"), read(transcribeParakeet)!!.languages)
+        assertEquals(emptyList<String>(), read(fluid)!!.languages) // a file that does not list any
+    }
+
+    @Test
     fun parakeetCppFilesAreToldApartFromTranscribeCppsOwnParakeet() {
         assertTrue(read(fluid)!!.isParakeetCpp)
         assertFalse(read(transcribeParakeet)!!.isParakeetCpp)

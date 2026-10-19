@@ -7,6 +7,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -54,6 +55,10 @@ import kaizo.co.WhisperVoiceKeyboard.models.ramLabel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
+// A text button keeps 12dp of padding inside its edges, which left Download and Remove about 2 mm
+// short of the plain "built-in" label above them. Dropping the end padding lines their text up.
+private val FlushEnd = PaddingValues(start = 12.dp, top = 8.dp, end = 0.dp, bottom = 8.dp)
+
 /**
  * Which speech model the keyboard runs: the recommended ones (installed or downloadable), any the
  * user added by hand, the spoken language, and adding a file.
@@ -78,6 +83,7 @@ fun ModelSettings() {
     var note by remember { mutableStateOf<String?>(null) }
     var importProgress by remember { mutableStateOf<String?>(null) }
     var confirm by remember { mutableStateOf<CatalogModel?>(null) }
+    var confirmInternet by remember { mutableStateOf<CatalogModel?>(null) }
     // what to show on a model's row while it downloads, or after it failed
     var rowText by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     var busy by remember { mutableStateOf<Set<String>>(emptySet()) }
@@ -153,6 +159,15 @@ fun ModelSettings() {
 
     val active = models.firstOrNull { it.id == activeId } ?: models.first()
     val installed = models.associateBy { it.fileName }
+    // A translating model (Canary) cannot detect what is spoken, so "auto" is not offered for it, and
+    // both lists show only the languages the model's own file says it supports.
+    val spoken = LANGUAGES.filter { (code, _) ->
+        if (active.canTranslate && code == "auto") false
+        else active.languages.isEmpty() || code == "auto" || code in active.languages
+    }
+    val written = LANGUAGES.filter { (code, _) ->
+        code != "auto" && (active.languages.isEmpty() || code in active.languages)
+    }
 
     fun select(model: ModelEntry) {
         prefs.edit().putString(ACTIVE_MODEL_KEY, model.id).apply()
@@ -198,7 +213,7 @@ fun ModelSettings() {
                         if (entry.builtIn) {
                             Text(stringResource(R.string.model_built_in), fontSize = 14.sp)
                         } else {
-                            TextButton(onClick = { remove(entry) }) { Text(stringResource(R.string.model_remove)) }
+                            TextButton(onClick = { remove(entry) }, contentPadding = FlushEnd) { Text(stringResource(R.string.model_remove)) }
                         }
                     },
                     modifier = Modifier.clickable(enabled = supported) { select(entry) }
@@ -222,12 +237,12 @@ fun ModelSettings() {
                                 TextButton(onClick = {
                                     downloader.cancel(c)
                                     rowText = rowText - c.id
-                                }) { Text(stringResource(R.string.model_cancel)) }
+                                }, contentPadding = FlushEnd) { Text(stringResource(R.string.model_cancel)) }
                             c.id in finishing -> {}
                             !c.downloadable ->
                                 Text(stringResource(R.string.model_coming_soon), fontSize = 14.sp)
                             !supported -> {}
-                            else -> TextButton(onClick = { confirm = c }) {
+                            else -> TextButton(onClick = { confirm = c }, contentPadding = FlushEnd) {
                                 Text(stringResource(R.string.model_download))
                             }
                         }
@@ -259,7 +274,7 @@ fun ModelSettings() {
                 leadingContent = { RadioButton(selected = model.id == active.id, onClick = null) },
                 trailingContent = {
                     if (!model.builtIn) {
-                        TextButton(onClick = { remove(model) }) { Text(stringResource(R.string.model_remove)) }
+                        TextButton(onClick = { remove(model) }, contentPadding = FlushEnd) { Text(stringResource(R.string.model_remove)) }
                     }
                 },
                 modifier = Modifier.clickable(enabled = supported) { select(model) }
@@ -267,13 +282,16 @@ fun ModelSettings() {
         }
 
         ListItem(
-            headlineContent = { Text(stringResource(R.string.language_option)) },
+            headlineContent = {
+                Text(stringResource(if (active.canTranslate) R.string.language_spoken else R.string.language_option))
+            },
             supportingContent = {
                 Text(
                     when {
                         active.engine == ModelEngine.PARAKEET_CPP -> stringResource(R.string.language_model_decides)
                         active.englishOnly -> stringResource(R.string.language_english_only)
-                        else -> LANGUAGES.firstOrNull { it.first == language }?.second ?: language
+                        // "auto" means English for a model that cannot detect the language
+                        else -> LANGUAGES.firstOrNull { it.first == (if (active.canTranslate && language == "auto") "en" else language) }?.second ?: language
                     }
                 )
             },
@@ -281,7 +299,7 @@ fun ModelSettings() {
             trailingContent = {
                 Box {
                     DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                        LANGUAGES.forEach { (code, label) ->
+                        spoken.forEach { (code, label) ->
                             DropdownMenuItem(text = { Text(label) }, onClick = {
                                 language = code
                                 prefs.edit().putString(LANGUAGE_KEY, code).apply()
@@ -318,7 +336,7 @@ fun ModelSettings() {
                                     translateMenuOpen = false
                                 }
                             )
-                            LANGUAGES.filter { it.first != "auto" }.forEach { (code, label) ->
+                            written.forEach { (code, label) ->
                                 DropdownMenuItem(text = { Text(label) }, onClick = {
                                     translateTo = code
                                     prefs.edit().putString(TRANSLATE_KEY, code).apply()
@@ -343,10 +361,11 @@ fun ModelSettings() {
         note?.let { Text(it, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 16.dp)) }
     }
 
+    // step 1: what the model is
     confirm?.let { c ->
         AlertDialog(
             onDismissRequest = { confirm = null },
-            title = { Text(stringResource(R.string.download_title, c.name)) },
+            title = { Text(c.name) },
             text = {
                 Column {
                     Text(c.about)
@@ -355,10 +374,6 @@ fun ModelSettings() {
                         modifier = Modifier.padding(top = 12.dp)
                     )
                     c.note?.let { Text(it, modifier = Modifier.padding(top = 4.dp)) }
-                    Text(
-                        stringResource(R.string.download_source, Uri.parse(c.url).host ?: ""),
-                        modifier = Modifier.padding(top = 12.dp)
-                    )
                     Text(
                         stringResource(R.string.download_credit, c.credit),
                         fontSize = 12.sp,
@@ -369,16 +384,40 @@ fun ModelSettings() {
             confirmButton = {
                 TextButton(onClick = {
                     confirm = null
+                    confirmInternet = c
+                }) { Text(stringResource(R.string.model_download)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirm = null }) { Text(stringResource(R.string.model_cancel)) }
+            }
+        )
+    }
+
+    // step 2: the one place the app asks to use the internet, before anything is sent
+    confirmInternet?.let { c ->
+        AlertDialog(
+            onDismissRequest = { confirmInternet = null },
+            title = { Text(stringResource(R.string.net_title)) },
+            text = {
+                Text(
+                    stringResource(
+                        R.string.net_body, c.name, downloadSizeLabel(c.sizeBytes), Uri.parse(c.url).host ?: ""
+                    )
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmInternet = null
                     note = null
                     try {
                         downloader.start(c)
                     } catch (e: Exception) {
                         note = context.getString(R.string.model_download_failed, c.name, e.localizedMessage ?: "")
                     }
-                }) { Text(stringResource(R.string.model_download)) }
+                }) { Text(stringResource(R.string.net_ok)) }
             },
             dismissButton = {
-                TextButton(onClick = { confirm = null }) { Text(stringResource(R.string.model_cancel)) }
+                TextButton(onClick = { confirmInternet = null }) { Text(stringResource(R.string.model_cancel)) }
             }
         )
     }

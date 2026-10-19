@@ -145,11 +145,7 @@ private fun People() {
     Column {
         ListItem(
             headlineContent = { Text(stringResource(R.string.about_original)) },
-            supportingContent = { Text("Kai (kaisoapbox)") },
-            modifier = Modifier.clickable { uriHandler.openUri("https://kaisoapbox.com") }
-        )
-        ListItem(
-            headlineContent = { Text(stringResource(R.string.support_text)) },
+            supportingContent = { Text("Kai (kaisoapbox) - " + stringResource(R.string.support_text)) },
             trailingContent = { Icon(Icons.AutoMirrored.Outlined.NavigateNext, null) },
             modifier = Modifier.clickable { uriHandler.openUri("https://kaisoapbox.com") }
         )

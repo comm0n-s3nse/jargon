@@ -68,13 +68,15 @@
     <string name="model_checking">Checking… %1$d%%</string>
     <string name="model_download_failed">Couldn\'t download %1$s (%2$s)</string>
     <string name="model_download_done">%1$s is ready. Select it to use it.</string>
-    <string name="download_title">Download %1$s?</string>
     <string name="download_facts">Download size: %1$s. Needs %2$s of memory while it runs.</string>
-    <string name="download_source">From %1$s. This is the only thing the app uses the internet for, and only when you tap Download.</string>
     <string name="download_credit">Credit: %1$s</string>
     <string name="about_original">Original developer</string>
     <string name="about_extended">Extended by</string>
     <string name="about_enhanced">Enhanced with</string>
-    <string name="translate_option">Translate to</string>
-    <string name="translate_off">Off, just write what is said</string>
+    <string name="translate_option">Write in</string>
+    <string name="translate_off">The language I speak</string>
+    <string name="net_title">Download over the internet?</string>
+    <string name="net_body">Downloading a speech model is the only thing this app ever uses the internet for. It will fetch %1$s (%2$s) from %3$s. Nothing you say is ever sent anywhere.</string>
+    <string name="net_ok">OK</string>
+    <string name="language_spoken">I speak</string>
 </resources>

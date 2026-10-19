@@ -71,6 +71,7 @@ data class ModelEntry(
     val builtIn: Boolean,
     val engine: ModelEngine = ModelEngine.WHISPER_CPP, // which of the three engines runs it
     val arch: String? = null, // a GGUF's general.architecture, e.g. "canary"
+    val languages: List<String> = emptyList(), // languages the model supports, when its file says
 ) {
     val label get() = labelFor(fileName)
     val format get() = if (fileName.endsWith(".gguf", ignoreCase = true)) ModelFormat.GGUF else ModelFormat.WHISPER_GGML
@@ -99,7 +100,10 @@ class ModelStore(private val context: Context) {
             .mapNotNull { f ->
                 val info = headerOf(f)
                 val engine = engineFor(f.name, info) ?: return@mapNotNull null // not a model we can run
-                ModelEntry("file:${f.name}", f.name, f.length(), builtIn = false, engine = engine, arch = info?.architecture)
+                ModelEntry(
+                    "file:${f.name}", f.name, f.length(), builtIn = false, engine = engine,
+                    arch = info?.architecture, languages = info?.languages.orEmpty()
+                )
             }
         return bundled + added
     }
@@ -208,7 +212,8 @@ class ModelStore(private val context: Context) {
                     val info = headerOf(target)
                     ModelEntry(
                         "file:$name", name, target.length(), builtIn = false,
-                        engine = engineFor(name, info) ?: ModelEngine.WHISPER_CPP, arch = info?.architecture
+                        engine = engineFor(name, info) ?: ModelEngine.WHISPER_CPP, arch = info?.architecture,
+                        languages = info?.languages.orEmpty()
                     )
                 } finally {
                     part.delete()
@@ -243,7 +248,8 @@ class ModelStore(private val context: Context) {
             val info = headerOf(target)
             ModelEntry(
                 "file:$fileName", fileName, target.length(), builtIn = false,
-                engine = engineFor(fileName, info) ?: ModelEngine.WHISPER_CPP, arch = info?.architecture
+                engine = engineFor(fileName, info) ?: ModelEngine.WHISPER_CPP, arch = info?.architecture,
+                languages = info?.languages.orEmpty()
             )
         } finally {
             part.delete()
