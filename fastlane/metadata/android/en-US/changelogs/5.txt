@@ -1,0 +1,8 @@
+• Text appears after you finish dictating, as one piece, with correct spacing and capitalization
+• Hold the microphone to talk; drag up to cancel
+• Hold backspace to delete word by word; drag it left to undo
+• Pull enter up to open settings
+• Choose among Whisper models (multilingual too) or Parakeet models, and set the language
+• Times itself on your phone to pick the fastest thread count
+• Fixes: a recording that kept running after the app was closed, a build that left the engine unoptimized, and a slowdown on long recordings
+• New About screen with credits and licenses

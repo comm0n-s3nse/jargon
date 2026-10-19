@@ -1,5 +1,13 @@
 # Kaiboard
 
+> **This is a fork** of [Kaiboard](https://github.com/kaisoapbox/kaiboard) by Kai (kaisoapbox),
+> which is where the keyboard, its interface and the idea come from. This version adds a faster and
+> more careful dictation flow, a choice of speech models and languages, and a second engine. See
+> [FORK.md](FORK.md) for what changed and the credits, [docs/RELEASING.md](docs/RELEASING.md) for
+> where it stands. Build it with `scripts/fetch-model.sh` and the steps in FORK.md. The links
+> below are to Kai's original app.
+
+
 <a href="https://play.google.com/store/apps/details?id=kaizo.co.WhisperVoiceKeyboard">
   <img src="https://cdn.rawgit.com/steverichey/google-play-badge-svg/master/img/en_get.svg" width="25%" alt="Download Kaiboard from Google Play">
 </a>

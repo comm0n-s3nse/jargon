@@ -65,14 +65,17 @@ it can sit next to the Play or F-Droid app.
   threads run 5 to 50 times slower than 4 on one phone, so the tuner counts only cores near the
   fastest one's speed, treats anything within 10% of the best as a tie (fewest threads wins),
   and, if a tune is ever interrupted, uses a safe default instead of retrying.
+- **About and licenses screen** (Settings): credits for Kaiboard, whisper.cpp, Whisper, parakeet.cpp,
+  ggml and the Android libraries, each with its license text, as BSD-3 and MIT require.
 
 See `KAIBOARD.md` in the parent project for the plan these came from.
 
 ## Building
 
 Submodules: `git submodule update --init whisper.cpp parakeet.cpp`, then
-`git -C parakeet.cpp submodule update --init --depth 1 third_party/ggml`. Put a whisper model in
-`app/src/main/assets/models/` (the default is `ggml-tiny.en.bin`). Needs JDK 17, the Android SDK
+`git -C parakeet.cpp submodule update --init --depth 1 third_party/ggml`. Then run
+`scripts/fetch-model.sh`, which downloads the built-in model (`ggml-tiny.en.bin`, not in git) and
+checks its SHA-256. Needs JDK 17, the Android SDK
 (platform 34), NDK 25.2.9519653 and CMake 3.22.1.
 
 ## Credits
