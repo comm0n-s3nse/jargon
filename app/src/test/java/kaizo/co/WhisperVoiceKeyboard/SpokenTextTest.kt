@@ -52,6 +52,17 @@ class SpokenTextTest {
     }
 
     @Test
+    fun dotDotDotTrailsOff() {
+        assertEquals("Wait... what", SpokenText.punctuation("Wait dot dot dot what").text)
+        assertEquals("Wait... what", SpokenText.punctuation("Wait, dot dot dot, what").text)
+        assertEquals("I guess...", SpokenText.punctuation("I guess dot dot dot.").text)
+        val r = SpokenText.punctuation("Ellipsis")
+        assertEquals("...", r.text)
+        assertTrue(r.attachLeft)
+        assertEquals("... and then", SpokenText.punctuation("Dot dot dot and then").text)
+    }
+
+    @Test
     fun chatShorthandIsLowercase() {
         assertEquals("That was great lol", SpokenText.chatCase("That was great LOL"))
         assertEquals("imo it works", SpokenText.chatCase("IMO it works"))

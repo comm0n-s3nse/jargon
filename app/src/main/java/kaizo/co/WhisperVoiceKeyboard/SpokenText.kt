@@ -20,6 +20,7 @@ object SpokenText {
         SpokenMark("semicolon", "semi ?colon", ";"),
         SpokenMark("colon", "colon", ":"),
         SpokenMark("hyphen", "hyphen|dash", "-"),
+        SpokenMark("dot dot dot", "dot dot dot|ellipsis", "..."),
     )
     private val phrases = PUNCTUATION.joinToString("|") { "(?:${it.said})" }
 
@@ -35,6 +36,9 @@ object SpokenText {
     // "well hyphen known" between two words joins them: the one mark that belongs in the middle
     private val joiner = Regex("""(?<=[\p{L}\p{N}])[\s,]+(?:hyphen|dash)[\s,]+(?=[\p{L}\p{N}])""", RegexOption.IGNORE_CASE)
 
+    // "wait dot dot dot what" trails off in the middle: "wait... what"
+    private val trailOff = Regex("""(?<=[\p{L}\p{N}])[\s,]+(?:dot dot dot|ellipsis)[\s,.]+(?=[\p{L}\p{N}])""", RegexOption.IGNORE_CASE)
+
     private fun mark(word: String): String =
         PUNCTUATION.first { Regex(it.said, RegexOption.IGNORE_CASE).matches(word) }.mark
 
@@ -45,7 +49,7 @@ object SpokenText {
      */
     fun punctuation(text: String, capitalize: Boolean = true): Result {
         only.find(text)?.let { return Result(mark(it.groupValues[1]), attachLeft = true) }
-        var out = joiner.replace(text, "-")
+        var out = trailOff.replace(joiner.replace(text, "-"), "... ")
         var attachLeft = false
         leading.find(out)?.let { m ->
             val p = mark(m.groupValues[1])
