@@ -8,6 +8,15 @@ fun isSingleLineField(inputType: Int): Boolean =
         inputType and InputType.TYPE_TEXT_FLAG_MULTI_LINE == 0
 
 /**
+ * A single word is rarely a sentence: a name in a form, a reply, a search. The model ends it with
+ * a period anyway; that comes off. "?" and "!" stay, they were meant.
+ */
+fun withoutLoneWordPeriod(text: String): String {
+    val t = text.trim()
+    return if (t.endsWith('.') && !t.dropLast(1).any { it.isWhitespace() } && t.length > 1) t.dropLast(1) else text
+}
+
+/**
  * What goes in a one-line box is a word or a phrase, not a sentence, so the model's closing
  * period or comma is dropped when the text is a single sentence. ! and ? are kept, and so is
  * anything with sentence ends inside it ("Go. Now.").

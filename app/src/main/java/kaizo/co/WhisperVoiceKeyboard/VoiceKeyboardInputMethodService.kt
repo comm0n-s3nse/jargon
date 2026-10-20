@@ -617,6 +617,8 @@ class VoiceKeyboardInputMethodService : InputMethodService(), LifecycleOwner,
                 val upper = sentenceStart
                 if (upper != null) text = text?.let { matchFirstLetterCase(it, upper) }
             }
+            // one word is a name or an answer, not a sentence: "Canary", not "Canary."
+            text = text?.let { withoutLoneWordPeriod(it) }
             // a search bar or address box wants "Maple Street", not "Maple Street."
             if (replaced == null && isSingleLineField(currentInputEditorInfo?.inputType ?: 0)) {
                 text = text?.let { withoutClosingPunctuation(it) }

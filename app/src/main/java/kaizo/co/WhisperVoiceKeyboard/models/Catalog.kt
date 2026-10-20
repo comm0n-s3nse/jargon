@@ -33,7 +33,6 @@ private const val HF = "https://huggingface.co"
 private const val CANARY_RAM_MB = 1250
 // peak resident memory of transcribe.cpp's CLI on a OnePlus 15, 7.5 s clip, Q8_0, 4 threads
 private const val CANARY_180M_RAM_MB = 390
-private const val MOONSHINE_RAM_MB = 65
 
 // RAM figures are peak resident memory measured on phones for a 7.5 s clip, rounded (see each model's
 // note in KAIBOARD.md); the
@@ -63,18 +62,6 @@ val CATALOG = listOf(
         sizeBytes = 347_357_184,
         note = "Needs a phone from about 2019 or newer.",
         engine = ModelEngine.PARAKEET_CPP,
-    ),
-    CatalogModel(
-        id = "moonshine-tiny", name = "Moonshine Tiny", by = "Useful Sensors",
-        file = "moonshine-tiny-Q8_0.gguf", ramMb = MOONSHINE_RAM_MB,
-        summary = "English only, light and quick (beta)",
-        about = "Quicker than Whisper Tiny on short dictation, with lighter punctuation. The keyboard " +
-            "splits long dictations at pauses, which keeps each piece inside this model's 45-second limit.",
-        credit = "Moonshine Tiny by Useful Sensors, MIT license, converted for transcribe.cpp by myflow-ai.",
-        url = "$HF/myflow-ai/moonshine-tiny-gguf/resolve/main/moonshine-tiny-Q8_0.gguf",
-        sha256 = "2fd348d7b38f97d309cc3ec6848f3f57f537b80244950f07d2637e463f95a3a1",
-        sizeBytes = 35_466_912,
-        engine = ModelEngine.TRANSCRIBE_CPP,
     ),
     CatalogModel(
         id = "canary-180m", name = "Canary 180M Flash", by = "NVIDIA",

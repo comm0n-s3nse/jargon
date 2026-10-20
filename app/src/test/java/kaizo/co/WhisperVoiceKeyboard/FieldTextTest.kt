@@ -14,6 +14,16 @@ class FieldTextTest {
     }
 
     @Test
+    fun aLoneWordLosesItsPeriod() {
+        assertEquals("Canary", withoutLoneWordPeriod("Canary."))
+        assertEquals("Single", withoutLoneWordPeriod("Single."))
+        assertEquals("Really?", withoutLoneWordPeriod("Really?"))
+        assertEquals("Two words.", withoutLoneWordPeriod("Two words."))
+        assertEquals("...", withoutLoneWordPeriod("..."))
+        assertEquals(".", withoutLoneWordPeriod("."))
+    }
+
+    @Test
     fun keepsQuestionsAndSeveralSentences() {
         assertEquals("Where is it?", withoutClosingPunctuation("Where is it?"))
         assertEquals("Go. Now.", withoutClosingPunctuation("Go. Now."))
