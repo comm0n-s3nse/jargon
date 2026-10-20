@@ -9,7 +9,7 @@ import java.net.URL
 
 /**
  * Asks GitHub for the newest release and remembers the answer. The app never does this by itself
- * unless the person turned the daily check on; the About screen can also ask on demand. It only
+ * unless the person switched it on, and then only when settings open; About can also ask on demand. It only
  * reads the version and the release page's address; installing is the person's own step.
  */
 object Updates {
@@ -19,7 +19,6 @@ object Updates {
     const val AT_KEY = "update_checked_at"
     const val RELEASES = "https://github.com/comm0n-s3nse/jargon/releases"
     private const val LATEST = "https://api.github.com/repos/comm0n-s3nse/jargon/releases/latest"
-    private const val DAY_MS = 24L * 60 * 60 * 1000
 
     class Result(val tag: String, val url: String)
 
@@ -45,8 +44,8 @@ object Updates {
         }
     }
 
-    fun due(prefs: SharedPreferences): Boolean =
-        prefs.getBoolean(AUTO_KEY, false) && System.currentTimeMillis() - prefs.getLong(AT_KEY, 0) > DAY_MS
+    /** Whether opening settings should ask now: whenever the switch is on. */
+    fun due(prefs: SharedPreferences): Boolean = prefs.getBoolean(AUTO_KEY, false)
 
     /** The remembered newer release, if the last answer was newer than [installed]. */
     fun available(prefs: SharedPreferences, installed: String): Result? {

@@ -115,8 +115,9 @@
     <string name="update_none">Up to date, as of %1$s.</string>
     <string name="update_never">Asks GitHub for the newest release. Nothing is sent but the request.</string>
     <string name="update_failed">Couldn\'t reach GitHub: %1$s</string>
-    <string name="update_auto_option">Check for updates daily</string>
-    <string name="update_auto_description">When you open settings, asks GitHub once a day whether there is a new version. Off, the app never uses the internet except for a model you download.</string>
+    <string name="update_auto_option">Check for updates</string>
+    <string name="update_auto_description">Each time settings open. Tap for details.</string>
+    <string name="update_auto_explain">Each time you open settings, the app asks GitHub for the newest release and shows it in About if it is newer than this one. Nothing but that request is sent, and nothing is installed by itself. Off, the app never uses the internet except for a model you download. You can also check any time from About.</string>
     <string name="tutorial_title">Gesture tutorial</string>
     <string name="tutorial_description">A minute with the three keys</string>
     <string name="tutorial_needs_setup">Enable the keyboard and the microphone first</string>

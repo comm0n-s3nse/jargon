@@ -500,6 +500,7 @@ private fun TutorialButton(enabled: Boolean) {
 @Composable
 private fun UpdateCheckItem(prefs: android.content.SharedPreferences) {
     var on by remember { mutableStateOf(prefs.getBoolean(Updates.AUTO_KEY, false)) }
+    var explain by remember { mutableStateOf(false) }
     ListItem(
         headlineContent = { Text(stringResource(R.string.update_auto_option)) },
         supportingContent = { Text(stringResource(R.string.update_auto_description)) },
@@ -510,8 +511,20 @@ private fun UpdateCheckItem(prefs: android.content.SharedPreferences) {
                 prefs.edit().putBoolean(Updates.AUTO_KEY, it).apply()
             })
         },
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { explain = true }
     )
+    if (explain) {
+        AlertDialog(
+            onDismissRequest = { explain = false },
+            title = { Text(stringResource(R.string.update_auto_option)) },
+            text = { Text(stringResource(R.string.update_auto_explain)) },
+            confirmButton = {
+                TextButton(onClick = { explain = false }) { Text(stringResource(R.string.net_ok)) }
+            }
+        )
+    }
 }
 
 @Composable
