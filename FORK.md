@@ -89,6 +89,22 @@ it can sit next to the Play or F-Droid app.
   one process, each with its own statically linked ggml.
 - **A smaller built-in model.** Whisper tiny.en is bundled as 8-bit `q8_0`: 44 MB instead of 78,
   about a fifth faster and 30 MB lighter in memory, with the same output on test speech.
+- **Long dictation is transcribed in pieces while you talk** (1.1). The recorder feeds a
+  `Chunker` that cuts at a 600 ms pause once a piece holds three seconds, or at the quietest
+  moment near 20 s; each piece is transcribed in the background and only the tail is left when
+  you stop. The texts are joined and committed once, through the same pipeline. Measured with a
+  real 70 s dictation on a OnePlus 15: Whisper Tiny's wait after the stop fell from about 4 s to
+  0.3 s; Moonshine Tiny's to 0.7 to 2 s.
+- **Spoken punctuation and emoji** (1.1): "question mark", "period", "comma", "hyphen", "new
+  line", "dot dot dot" at the edges (hyphen, ellipsis and new line also mid-sentence), and some
+  thirty emoji phrases. Both are Behavior switches with the lists a tap away. Chat shorthand
+  (lol, imo, tbh…) stays lowercase.
+- **Gesture tutorial** (1.1): a black page in Essential Setup that walks the seven gestures by
+  having you do them; the keys report each one. Always shown in a debug build.
+- **Update check** (1.1): on demand in About, or daily if switched on in Behavior; it asks GitHub
+  for the newest release and links to its page. The keyboard process never uses the network.
+- **Speech model and Translation model** sections (1.1), six recommended models: Whisper Tiny,
+  Fluid Speech Mini, Moonshine Tiny; Whisper Small, Canary 180M Flash, Canary 1B.
 - **About and licenses screen** (Settings): credits for Kaiboard, whisper.cpp, Whisper, parakeet.cpp,
   ggml and the Android libraries, each with its license text, as BSD-3 and MIT require.
 
@@ -115,4 +131,7 @@ Under evaluation, not shipped (listed so credit is not forgotten if they are):
 
 - **parakeet.cpp** by its authors, MIT.
 - **Fluid Speech Mini** by FluidVoice Labs, CC BY 4.0, built on NVIDIA Parakeet TDT 0.6B v3 (CC BY 4.0).
+- **Moonshine Tiny** by Useful Sensors, MIT, converted for transcribe.cpp by myflow-ai.
+- **Canary 180M Flash** and **Canary 1B v2** by NVIDIA, CC BY 4.0, converted by handy-computer.
+- **GitHub and X marks** from Simple Icons, CC0.
   CC BY 4.0 requires crediting it as "Fluid Speech Mini by FluidVoice".

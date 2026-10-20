@@ -29,6 +29,17 @@ Builds:
       - apt-get install -y cmake
     gradle:
       - yes
+    ndk: r25c
+  - versionName: '1.1'
+    versionCode: 2
+    commit: v1.1
+    subdir: app
+    submodules: true
+    sudo:
+      - apt-get update
+      - apt-get install -y cmake
+    gradle:
+      - yes
     # no prebuild: this build ships without a speech model, as the other Whisper keyboards on
     # F-Droid do. The app offers the model list on first open and downloads with a pinned SHA-256.
     # (scripts/fetch-model.sh bundles it for the GitHub and Play builds.)
@@ -36,5 +47,5 @@ Builds:
 
 AutoUpdateMode: Version
 UpdateCheckMode: Tags
-CurrentVersion: '1.0'
-CurrentVersionCode: 1
+CurrentVersion: '1.1'
+CurrentVersionCode: 2
