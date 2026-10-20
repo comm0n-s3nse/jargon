@@ -1,4 +1,4 @@
-Jargon is a voice typing keyboard that recognizes your speech <b>on your phone</b>: what you say is never uploaded. The only thing it uses the internet for is downloading a speech model, when you ask it to. It is a fork of Kaiboard by Kai, built on whisper.cpp, parakeet.cpp and transcribe.cpp.
+Jargon is a voice typing keyboard that recognizes your speech <b>on your phone</b>: what you say is never uploaded. The only things it uses the internet for are downloading a speech model when you ask it to, and, only if you switch that on, asking GitHub once a day whether there is a new version. It is a fork of Kaiboard by Kai, built on whisper.cpp, parakeet.cpp and transcribe.cpp.
 
 It is a dictation strip, not a full keyboard: keep your normal keyboard for typing and flick up on Jargon's enter key to get back to it. This copy ships without a speech model, so every byte of the app is open source; on first open it offers the models to download, from a small English one to Canary 1B, which translates between 25 European languages.
 

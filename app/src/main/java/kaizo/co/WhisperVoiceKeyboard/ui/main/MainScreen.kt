@@ -2,6 +2,11 @@ package kaizo.co.WhisperVoiceKeyboard.ui.main
 
 import kaizo.co.WhisperVoiceKeyboard.models.ModelStore
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.runtime.LaunchedEffect
+import kaizo.co.WhisperVoiceKeyboard.Updates
+import kaizo.co.WhisperVoiceKeyboard.Tutorial
+import androidx.compose.material.icons.outlined.Update
+import androidx.compose.material.icons.outlined.TouchApp
 import kaizo.co.WhisperVoiceKeyboard.SpokenText
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -69,6 +74,11 @@ fun MainScreen(viewModel: MainScreenViewModel) {
     var showAppearance by remember { mutableStateOf(false) }
     // a copy that shipped without a model starts on the welcome screen until one is downloaded
     val context = LocalContext.current
+    if (Tutorial.active) {
+        BackHandler { Tutorial.stop() }
+        TutorialScreen(onDone = { Tutorial.stop() }, onLeave = { Tutorial.stop() })
+        return
+    }
     var needsModel by remember { mutableStateOf(ModelStore(context).list().isEmpty()) }
     if (needsModel) {
         WelcomeScreen(onContinue = { needsModel = ModelStore(context).list().isEmpty() })
@@ -132,6 +142,19 @@ private fun MainScreen(
     }
 
     val setup = rememberSetupState()
+    val debuggable = (appContext.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0
+    var tutorialDone by remember { mutableStateOf(sharedPref.getBoolean(TUTORIAL_DONE_KEY, false)) }
+    val showTutorial = !tutorialDone || debuggable
+    // the newest release, if a check found one; the daily check runs here, never in the keyboard
+    val installed = remember { try { appContext.packageManager.getPackageInfo(appContext.packageName, 0).versionName ?: "" } catch (e: Exception) { "" } }
+    var update by remember { mutableStateOf(Updates.available(sharedPref, installed)) }
+    LaunchedEffect(Unit) {
+        if (Updates.due(sharedPref)) {
+            try { Updates.check(sharedPref) } catch (e: Exception) { /* no network, no news */ }
+            update = Updates.available(sharedPref, installed)
+        }
+        tutorialDone = sharedPref.getBoolean(TUTORIAL_DONE_KEY, false)
+    }
 
     Scaffold(
         topBar = {
@@ -148,11 +171,12 @@ private fun MainScreen(
         ) {
             // Setup shows only what still needs doing, and disappears once all of it is done.
             // About then leads the page, followed by the system keyboard list.
-            if (setup.anyMissing) item { SectionHeader(stringResource(R.string.setup_header)) }
+            if (setup.anyMissing || showTutorial) item { SectionHeader(stringResource(R.string.setup_header)) }
             if (!setup.keyboardEnabled) item { InputMethodButton(enabled = false) }
             if (!setup.micGranted) item { PermissionButton() }
             if (!setup.hapticsOn) item { HapticsButton() }
-            item { AboutButton(onAboutTapped) }
+            if (showTutorial) item { TutorialButton(enabled = setup.keyboardEnabled && setup.micGranted) }
+            item { AboutButton(onAboutTapped, update) }
             if (setup.keyboardEnabled) item { InputMethodButton(enabled = true) }
             item { ModelSettings() }
             item { SectionHeader(stringResource(R.string.behavior_header)) }
@@ -196,6 +220,7 @@ private fun MainScreen(
             }
             item { SpokenPunctuationItem(sharedPref) }
             item { SpokenEmojiItem(sharedPref) }
+            item { UpdateCheckItem(sharedPref) }
             item { AppearanceButton(onAppearanceTapped) }
             item { SectionHeader(stringResource(R.string.advanced_header), bp = 4.dp) }
             item {
@@ -460,9 +485,44 @@ private fun SpokenEmojiItem(prefs: android.content.SharedPreferences) {
 }
 
 @Composable
-private fun AboutButton(onClick: () -> Unit) {
+private fun TutorialButton(enabled: Boolean) {
     ListItem(
-        headlineContent = { Text(stringResource(R.string.about_button)) },
+        headlineContent = { Text(stringResource(R.string.tutorial_title)) },
+        supportingContent = {
+            Text(stringResource(if (enabled) R.string.tutorial_description else R.string.tutorial_needs_setup))
+        },
+        leadingContent = { Icon(Icons.Outlined.TouchApp, null) },
+        trailingContent = { Icon(Icons.AutoMirrored.Outlined.NavigateNext, null) },
+        modifier = Modifier.clickable(enabled = enabled) { Tutorial.start() }
+    )
+}
+
+@Composable
+private fun UpdateCheckItem(prefs: android.content.SharedPreferences) {
+    var on by remember { mutableStateOf(prefs.getBoolean(Updates.AUTO_KEY, false)) }
+    ListItem(
+        headlineContent = { Text(stringResource(R.string.update_auto_option)) },
+        supportingContent = { Text(stringResource(R.string.update_auto_description)) },
+        leadingContent = { Icon(Icons.Outlined.Update, null) },
+        trailingContent = {
+            Switch(checked = on, onCheckedChange = {
+                on = it
+                prefs.edit().putBoolean(Updates.AUTO_KEY, it).apply()
+            })
+        },
+        modifier = Modifier.fillMaxWidth()
+    )
+}
+
+@Composable
+private fun AboutButton(onClick: () -> Unit, update: Updates.Result?) {
+    ListItem(
+        headlineContent = {
+            Text(
+                if (update != null) stringResource(R.string.about_button_update, update.tag.removePrefix("v"))
+                else stringResource(R.string.about_button)
+            )
+        },
         leadingContent = { Icon(Icons.Outlined.Info, null) },
         trailingContent = { Icon(Icons.AutoMirrored.Outlined.NavigateNext, null) },
         modifier = Modifier.clickable(onClick = onClick)

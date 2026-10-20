@@ -34,6 +34,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kaizo.co.WhisperVoiceKeyboard.R
+import java.util.Date
+import java.text.DateFormat
+import kotlinx.coroutines.launch
+import kaizo.co.WhisperVoiceKeyboard.Updates
+import androidx.compose.runtime.rememberCoroutineScope
+import android.content.Context
 
 /** One thing this app is built on, with whose it is, under what license, and where to find it. */
 private data class Credit(
@@ -131,17 +137,84 @@ fun AboutScreen(onBack: () -> Unit) {
                         fontSize = 28.sp,
                         fontWeight = FontWeight.Bold
                     )
-                    if (version.isNotEmpty()) Text(stringResource(R.string.about_version, version))
                     Text(
                         stringResource(R.string.about_summary),
                         modifier = Modifier.padding(top = 8.dp)
                     )
                 }
             }
+            item { VersionRow(version) }
+            item { UpdateRow(version) }
             item { People() }
             items(CREDITS) { credit -> CreditItem(credit) }
         }
     }
+}
+
+// "Jargon 1.0 · release notes": the installed version, and what changed in it, on GitHub.
+@Composable
+private fun VersionRow(version: String) {
+    val uriHandler = LocalUriHandler.current
+    ListItem(
+        headlineContent = { Text(stringResource(R.string.about_version_name, stringResource(R.string.app_name), version)) },
+        supportingContent = { Text(stringResource(R.string.about_release_notes)) },
+        trailingContent = { Icon(Icons.AutoMirrored.Outlined.NavigateNext, null) },
+        modifier = Modifier.clickable { uriHandler.openUri("${Updates.RELEASES}/tag/v$version") }
+    )
+}
+
+// Asks GitHub on demand; the result stays until the next check. Installing is a tap on the release page.
+@Composable
+private fun UpdateRow(version: String) {
+    val context = LocalContext.current
+    val uriHandler = LocalUriHandler.current
+    val scope = rememberCoroutineScope()
+    val prefs = remember { context.getSharedPreferences(context.getString(R.string.preference_file_key), Context.MODE_PRIVATE) }
+    var checking by remember { mutableStateOf(false) }
+    var newer by remember { mutableStateOf(Updates.available(prefs, version)) }
+    var status by remember { mutableStateOf<String?>(null) }
+    val checkedAt = prefs.getLong(Updates.AT_KEY, 0)
+    ListItem(
+        headlineContent = {
+            Text(
+                when {
+                    newer != null -> stringResource(R.string.update_available, newer!!.tag.removePrefix("v"))
+                    else -> stringResource(R.string.update_check)
+                }
+            )
+        },
+        supportingContent = {
+            Text(
+                status ?: when {
+                    checking -> stringResource(R.string.update_checking)
+                    newer != null -> stringResource(R.string.update_get)
+                    checkedAt > 0 -> stringResource(R.string.update_none, DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(checkedAt)))
+                    else -> stringResource(R.string.update_never)
+                }
+            )
+        },
+        trailingContent = { Icon(Icons.AutoMirrored.Outlined.NavigateNext, null) },
+        modifier = Modifier.clickable(enabled = !checking) {
+            val n = newer
+            if (n != null) {
+                uriHandler.openUri(n.url)
+            } else {
+                checking = true
+                status = null
+                scope.launch {
+                    try {
+                        Updates.check(prefs)
+                        newer = Updates.available(prefs, version)
+                        if (newer == null) status = context.getString(R.string.update_none, DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date()))
+                    } catch (e: Exception) {
+                        status = context.getString(R.string.update_failed, e.localizedMessage ?: "")
+                    } finally {
+                        checking = false
+                    }
+                }
+            }
+        }
+    )
 }
 
 // The people behind the app, in the order the work happened.

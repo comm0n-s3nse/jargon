@@ -166,7 +166,10 @@ class VoiceKeyboardView(private val service: VoiceKeyboardInputMethodService) :
                 )
                 if (service.isRecording && !micHeld && !stopping) {
                     CancelButton(
-                        onClick = service::cancelRecord,
+                        onClick = {
+                            Tutorial.saw(Tutorial.Event.CANCEL_BUTTON)
+                            service.cancelRecord()
+                        },
                         modifier = Modifier
                             .padding(padding)
                             .width(keyWidth)
@@ -267,7 +270,10 @@ private fun DeleteButton(
                 .pointerInput(Unit) {
                     detectHorizontalDragGestures(
                         onDragEnd = {
-                            if (dragX <= -undoDistancePx) onUndo(deletes > 1)
+                            if (dragX <= -undoDistancePx) {
+                                onUndo(deletes > 1)
+                                Tutorial.saw(Tutorial.Event.UNDO)
+                            }
                             dragX = 0f
                             armed = false
                         },
@@ -343,6 +349,7 @@ private fun EnterButton(
                         if (!moved) {
                             held = true
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            Tutorial.saw(Tutorial.Event.HOLD_SETTINGS)
                             onSettings()
                         }
                     }
@@ -369,7 +376,10 @@ private fun EnterButton(
                     hold.cancel()
                     when {
                         held -> {}
-                        moved -> if (armed) onPreviousKeyboard()
+                        moved -> if (armed) {
+                            Tutorial.saw(Tutorial.Event.FLICK_KEYBOARD)
+                            onPreviousKeyboard()
+                        }
                         else -> onEnter()
                     }
                     dragY = 0f
@@ -561,6 +571,7 @@ private fun RecordButton(
                         }
                         holdMode = true
                         charging = false
+                        Tutorial.saw(Tutorial.Event.HOLD_START)
                         // the ring has reached the edges: hold mode starts now
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                     }
@@ -614,11 +625,21 @@ private fun RecordButton(
                     }
                     val held = SystemClock.uptimeMillis() - pressedAt >= HOLD_GATE_MS
                     when {
-                        startedOnPress && dragUp >= cancelDistancePx -> onCancel()
-                        !startedOnPress || held -> {
+                        startedOnPress && dragUp >= cancelDistancePx -> {
+                            Tutorial.saw(Tutorial.Event.HOLD_CANCEL)
+                            onCancel()
+                        }
+                        !startedOnPress -> {
+                            Tutorial.saw(Tutorial.Event.TAP_STOP)
                             onStopping()
                             onClick()
                         }
+                        held -> {
+                            Tutorial.saw(Tutorial.Event.HOLD_STOP)
+                            onStopping()
+                            onClick()
+                        }
+                        else -> Tutorial.saw(Tutorial.Event.TAP_START) // a tap: the recording carries on
                     }
                     touch = null
                     holdMode = false

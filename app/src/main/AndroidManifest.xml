@@ -18,6 +18,8 @@
         <activity
             android:name="kaizo.co.WhisperVoiceKeyboard.MainActivity"
             android:exported="true"
+            android:launchMode="singleTask"
+            android:windowSoftInputMode="adjustResize"
             android:theme="@style/Theme.Kaiboard">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
