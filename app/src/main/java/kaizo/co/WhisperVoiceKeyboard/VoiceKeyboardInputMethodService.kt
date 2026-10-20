@@ -559,6 +559,13 @@ class VoiceKeyboardInputMethodService : InputMethodService(), LifecycleOwner,
                     val spoken = SpokenText.punctuation(text, capitalize = checkBoolPref(R.string.casual_mode) != true)
                     text = spoken.text
                     attachLeft = spoken.attachLeft && replaced == null
+                    if (spoken.bare) {
+                        // "space" or "new line" on its own: exactly that, nothing added around it
+                        leading = ""
+                        trailing = ""
+                    } else if (text.endsWith("\n")) {
+                        trailing = ""
+                    }
                 }
                 text = SpokenText.chatCase(text)
             }

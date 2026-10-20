@@ -63,6 +63,23 @@ class SpokenTextTest {
     }
 
     @Test
+    fun spaceAndNewLine() {
+        val sp = SpokenText.punctuation("Space.")
+        assertEquals(" ", sp.text)
+        assertTrue(sp.bare)
+        assertEquals("Outer space is big.", SpokenText.punctuation("Outer space is big.").text)
+        val nl = SpokenText.punctuation("New line")
+        assertEquals("\n", nl.text)
+        assertTrue(nl.bare)
+        assertFalse(nl.attachLeft)
+        assertEquals("Dear Sam\nThanks for the lamp.", SpokenText.punctuation("Dear Sam new line thanks for the lamp.").text)
+        assertEquals("Dear Sam\nThanks for the lamp.", SpokenText.punctuation("Dear Sam, newline, thanks for the lamp.").text)
+        assertEquals("Thanks\n", SpokenText.punctuation("Thanks new line").text)
+        assertEquals("Bye 🙈", SpokenText.emoji("Bye see no evil"))
+        assertEquals("Bye 🙈", SpokenText.emoji("Bye monkey covering its eyes"))
+    }
+
+    @Test
     fun chatShorthandIsLowercase() {
         assertEquals("That was great lol", SpokenText.chatCase("That was great LOL"))
         assertEquals("imo it works", SpokenText.chatCase("IMO it works"))

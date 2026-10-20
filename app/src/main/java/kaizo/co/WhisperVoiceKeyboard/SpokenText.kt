@@ -6,8 +6,11 @@ package kaizo.co.WhisperVoiceKeyboard
  * The model writes them out as words; these turn them into the characters.
  */
 object SpokenText {
-    /** [text] with the spoken marks replaced; [attachLeft] when it starts with punctuation, which belongs to the word before the cursor. */
-    data class Result(val text: String, val attachLeft: Boolean)
+    /**
+     * [text] with the spoken marks replaced; [attachLeft] when it starts with punctuation, which
+     * belongs to the word before the cursor; [bare] when it is whitespace to commit exactly as is.
+     */
+    data class Result(val text: String, val attachLeft: Boolean, val bare: Boolean = false)
 
     /** One mark, the way it is shown in the list, and the ways people say it (a regex). */
     data class SpokenMark(val label: String, val said: String, val mark: String)
@@ -21,7 +24,11 @@ object SpokenText {
         SpokenMark("colon", "colon", ":"),
         SpokenMark("hyphen", "hyphen|dash", "-"),
         SpokenMark("dot dot dot", "dot dot dot|ellipsis", "..."),
+        SpokenMark("new line", "new ?line", "\n"),
     )
+
+    // "space" on its own is the space bar; in a sentence it is a word ("outer space")
+    private val spaceOnly = Regex("""^\s*space[.,!?]*\s*$""", RegexOption.IGNORE_CASE)
     private val phrases = PUNCTUATION.joinToString("|") { "(?:${it.said})" }
 
     // "Question mark." / "Period, do you need anything" at the very start
@@ -39,6 +46,9 @@ object SpokenText {
     // "wait dot dot dot what" trails off in the middle: "wait... what"
     private val trailOff = Regex("""(?<=[\p{L}\p{N}])[\s,]+(?:dot dot dot|ellipsis)[\s,.]+(?=[\p{L}\p{N}])""", RegexOption.IGNORE_CASE)
 
+    // "first line new line second line" breaks the line in the middle
+    private val lineBreak = Regex("""[\s,]*[.,]?\s+new ?line[\s,.]+(?=\S)""", RegexOption.IGNORE_CASE)
+
     private fun mark(word: String): String =
         PUNCTUATION.first { Regex(it.said, RegexOption.IGNORE_CASE).matches(word) }.mark
 
@@ -48,8 +58,14 @@ object SpokenText {
      * casual mode).
      */
     fun punctuation(text: String, capitalize: Boolean = true): Result {
-        only.find(text)?.let { return Result(mark(it.groupValues[1]), attachLeft = true) }
+        if (spaceOnly.matches(text)) return Result(" ", attachLeft = false, bare = true)
+        only.find(text)?.let { m ->
+            val p = mark(m.groupValues[1])
+            return Result(p, attachLeft = p != "\n", bare = p == "\n")
+        }
         var out = trailOff.replace(joiner.replace(text, "-"), "... ")
+        out = lineBreak.replace(out) { m -> "\n" + (if (capitalize) "" else "") }
+        if (capitalize) out = out.split("\n").joinToString("\n") { upperFirst(it) }
         var attachLeft = false
         leading.find(out)?.let { m ->
             val p = mark(m.groupValues[1])
@@ -59,8 +75,12 @@ object SpokenText {
             } else {
                 lowerFirst(rest)
             }
-            out = if (p == "-") "$p$rest" else "$p $rest"
-            attachLeft = true
+            out = when (p) {
+                "-" -> "$p$rest"
+                "\n" -> "$p${if (capitalize) upperFirst(rest) else rest}"
+                else -> "$p $rest"
+            }
+            attachLeft = p != "\n"
         }
         trailing.find(out)?.let { m ->
             out = out.substring(0, m.range.first) + mark(m.groupValues[1])
@@ -97,6 +117,7 @@ object SpokenText {
         SpokenEmoji("hundred emoji", "hundred emoji", "💯"),
         SpokenEmoji("sparkle emoji", "sparkles? emoji", "✨"),
         SpokenEmoji("sun emoji", "sun emoji", "☀️"),
+        SpokenEmoji("see no evil", "see no evil|monkey (?:covering (?:its |his )?)?eyes|shy monkey", "🙈"),
     )
     private val emojiPhrases = EMOJI.joinToString("|") { "(?:${it.said})" }
 
