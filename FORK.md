@@ -104,7 +104,9 @@ it can sit next to the Play or F-Droid app.
 - **Update check** (1.1): on demand in About, or whenever settings open if switched on in
   Behavior; it asks GitHub for the newest release and links to its page. The keyboard process never uses the network.
 - **Speech model and Translation model** sections (1.1), five recommended models: Whisper Tiny,
-  Fluid Speech Mini; Canary 180M Flash (recommended), Whisper Small, Canary 1B. Moonshine Tiny was
+  Fluid Speech Mini, Canary 180M Flash (recommended); Whisper Small, Canary 1B. The language rows
+  offer every language a model's file lists, named by the system (Canary 1B's 25, Slovenian
+  included), not just the short list. Moonshine Tiny was
   tried and dropped: once dictation is transcribed in pieces its speed no longer bought anything, and
   its text was the roughest of the three; transcribe.cpp still runs it through "Add a model file".
 - **About and licenses screen** (Settings): credits for Kaiboard, whisper.cpp, Whisper, parakeet.cpp,

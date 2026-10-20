@@ -13,6 +13,18 @@ import org.junit.Test
 
 class ModelStoreTest {
     @Test
+    fun everyListedLanguageIsOfferedByName() {
+        val canary = kaizo.co.WhisperVoiceKeyboard.models.ModelEntry(
+            "file:c.gguf", "c.gguf", 1, builtIn = false, arch = "canary", languages = listOf("sl", "en", "pt")
+        )
+        val offered = kaizo.co.WhisperVoiceKeyboard.models.languagesFor(canary)
+        assertEquals(listOf("en" to "English", "pt" to "Portuguese", "sl" to "Slovenian"), offered)
+        assertEquals("Slovenian", kaizo.co.WhisperVoiceKeyboard.models.languageName("sl"))
+        // a file that lists nothing gets the short list, auto-detect first
+        assertEquals("auto", kaizo.co.WhisperVoiceKeyboard.models.languagesFor(null).first().first)
+    }
+
+    @Test
     fun recognizesWhisperGgmlGgufAndNeither() {
         assertEquals(ModelFormat.WHISPER_GGML, detectFormat(byteArrayOf(0x6c, 0x6d, 0x67, 0x67, 1, 2)))
         assertEquals(ModelFormat.GGUF, detectFormat("GGUF".toByteArray()))

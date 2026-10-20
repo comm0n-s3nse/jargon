@@ -66,7 +66,7 @@ val CATALOG = listOf(
     CatalogModel(
         id = "canary-180m", name = "Canary 180M Flash", by = "NVIDIA",
         file = "canary-180m-flash-Q8_0.gguf", ramMb = CANARY_180M_RAM_MB,
-        summary = "English, German, Spanish and French; translates between them (beta)",
+        summary = "English and 4 European languages",
         about = "The small Canary: listens in English, German, Spanish or French and can translate " +
             "between them. On a 2025 phone it finished a minute of dictation half a second after " +
             "the stop, with cleaner text than Whisper Tiny. The one to get if your phone has the room.",
@@ -76,7 +76,6 @@ val CATALOG = listOf(
         sha256 = "f942ab746040b531a29ab78ca3afc8dc9564efd8e4c942b5541e53644be9c408",
         sizeBytes = 218_447_648,
         engine = ModelEngine.TRANSCRIBE_CPP,
-        translates = true,
     ),
     CatalogModel(
         id = "whisper-small", name = "Whisper Small", by = "OpenAI",

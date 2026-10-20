@@ -42,6 +42,22 @@ val LANGUAGES = listOf(
     "ja" to "Japanese", "ko" to "Korean", "zh" to "Chinese", "ar" to "Arabic", "hi" to "Hindi",
 )
 
+/** A language's name for a code the short list does not know ("sl" -> "Slovenian"), in the phone's language. */
+fun languageName(code: String): String =
+    LANGUAGES.firstOrNull { it.first == code }?.second
+        ?: java.util.Locale.forLanguageTag(code).getDisplayLanguage().takeIf { it.isNotEmpty() && it != code }
+        ?: code.uppercase()
+
+/**
+ * The languages to offer for [model]: everything its file says it supports, named and sorted, or
+ * the short list when the file says nothing (Whisper's files do not).
+ */
+fun languagesFor(model: ModelEntry?): List<Pair<String, String>> {
+    val listed = model?.languages.orEmpty()
+    if (listed.isEmpty()) return LANGUAGES
+    return listed.distinct().map { it to languageName(it) }.sortedBy { it.second }
+}
+
 enum class ModelFormat { WHISPER_GGML, GGUF, UNKNOWN }
 
 /** What a model file is, from its first four bytes. */

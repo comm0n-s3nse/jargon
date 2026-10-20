@@ -42,6 +42,8 @@ import kaizo.co.WhisperVoiceKeyboard.models.CATALOG
 import kaizo.co.WhisperVoiceKeyboard.models.CatalogModel
 import kaizo.co.WhisperVoiceKeyboard.models.CpuFeatures
 import kaizo.co.WhisperVoiceKeyboard.models.LANGUAGES
+import kaizo.co.WhisperVoiceKeyboard.models.languagesFor
+import kaizo.co.WhisperVoiceKeyboard.models.languageName
 import kaizo.co.WhisperVoiceKeyboard.models.rememberTranslateTarget
 import kaizo.co.WhisperVoiceKeyboard.models.LANGUAGE_KEY
 import kaizo.co.WhisperVoiceKeyboard.models.ModelDownloader
@@ -165,13 +167,10 @@ fun ModelSettings() {
     val installed = models.associateBy { it.fileName }
     // A translating model (Canary) cannot detect what is spoken, so "auto" is not offered for it, and
     // both lists show only the languages the model's own file says it supports.
-    val spoken = LANGUAGES.filter { (code, _) ->
-        if (active?.canTranslate == true && code == "auto") false
-        else active == null || active.languages.isEmpty() || code == "auto" || code in active.languages
-    }
-    val written = LANGUAGES.filter { (code, _) ->
-        code != "auto" && (active == null || active.languages.isEmpty() || code in active.languages)
-    }
+    val offered = languagesFor(active)
+    val spoken = if (active?.canTranslate == true) offered.filter { it.first != "auto" }
+    else if (offered.none { it.first == "auto" }) listOf(LANGUAGES.first()) + offered else offered
+    val written = offered.filter { it.first != "auto" }
 
     fun select(model: ModelEntry) {
         prefs.edit().putString(ACTIVE_MODEL_KEY, model.id).apply()
@@ -189,7 +188,7 @@ fun ModelSettings() {
     }
 
     // the active model's section is where its language rows go
-    val activeTranslates = active?.let { catalogFor(it.fileName)?.translates == true || it.canTranslate } == true
+    val activeTranslates = active?.let { catalogFor(it.fileName)?.translates == true } == true
 
     @Composable
     fun header(text: Int) {
@@ -338,7 +337,7 @@ fun ModelSettings() {
                     headlineContent = { Text(stringResource(R.string.translate_option)) },
                     supportingContent = {
                         Text(
-                            LANGUAGES.firstOrNull { it.first == translateTo && translateTo.isNotEmpty() }?.second
+                            translateTo.takeIf { it.isNotEmpty() }?.let { languageName(it) }
                                 ?: stringResource(R.string.translate_off)
                         )
                     },

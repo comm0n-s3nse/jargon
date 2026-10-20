@@ -76,7 +76,7 @@
     <string name="about_original">Original developer</string>
     <string name="about_extended">Extended by</string>
     <string name="about_enhanced">Enhanced with</string>
-    <string name="translate_option">Write in</string>
+    <string name="translate_option">Write in (beta)</string>
     <string name="translate_off">The language I speak</string>
     <string name="net_title">Download over the internet?</string>
     <string name="net_body">Downloading a speech model is the only thing this app ever uses the internet for. It will fetch %1$s (%2$s) from %3$s. Nothing you say is ever sent anywhere.</string>
