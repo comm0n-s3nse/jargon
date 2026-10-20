@@ -26,9 +26,10 @@ class Recorder {
         onError: (Exception) -> Job,
         transcriptionCallback: ((ShortArray) -> Unit)? = null,
         onLevel: ((Float) -> Unit)? = null, // how loud each chunk was, 0 to 1, about 25 times a second
+        onAudio: ((ShortArray, Int) -> Unit)? = null, // each chunk of samples as it is read, on the recorder's thread
     ) =
         withContext(scope.coroutineContext) {
-            recorder = AudioRecordThread(outputFile, onError, transcriptionCallback, onLevel)
+            recorder = AudioRecordThread(outputFile, onError, transcriptionCallback, onLevel, onAudio)
             recorder?.start()
         }
 
@@ -45,6 +46,7 @@ private class AudioRecordThread(
     private val onError: (Exception) -> Job,
     private val transcriptionCallback: ((ShortArray) -> Unit)?,
     private val onLevel: ((Float) -> Unit)?,
+    private val onAudio: ((ShortArray, Int) -> Unit)?,
 ) :
     Thread("AudioRecorder") {
     private var quit = AtomicBoolean(false)
@@ -87,6 +89,7 @@ private class AudioRecordThread(
                         System.arraycopy(buffer, 0, allData, size, read)
                         size += read
                         onLevel?.invoke(meter.level(buffer, read))
+                        onAudio?.invoke(buffer, read)
                     } else {
                         throw java.lang.RuntimeException("audioRecord.read returned $read")
                     }

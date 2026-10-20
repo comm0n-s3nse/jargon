@@ -67,9 +67,8 @@ val CATALOG = listOf(
         id = "moonshine-tiny", name = "Moonshine Tiny", by = "Useful Sensors",
         file = "moonshine-tiny-Q8_0.gguf", ramMb = MOONSHINE_RAM_MB,
         summary = "English only, light and quick (beta)",
-        about = "Quicker than Whisper Tiny on short dictation, with lighter punctuation. It stops " +
-            "writing after about 45 seconds of speech, so keep dictations short until the keyboard " +
-            "learns to split long ones.",
+        about = "Quicker than Whisper Tiny on short dictation, with lighter punctuation. The keyboard " +
+            "splits long dictations at pauses, which keeps each piece inside this model's 45-second limit.",
         credit = "Moonshine Tiny by Useful Sensors, MIT license, converted for transcribe.cpp by myflow-ai.",
         url = "$HF/myflow-ai/moonshine-tiny-gguf/resolve/main/moonshine-tiny-Q8_0.gguf",
         sha256 = "2fd348d7b38f97d309cc3ec6848f3f57f537b80244950f07d2637e463f95a3a1",

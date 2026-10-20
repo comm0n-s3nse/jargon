@@ -46,6 +46,12 @@ import kaizo.co.WhisperVoiceKeyboard.audio.trimSilence
 import kaizo.co.WhisperVoiceKeyboard.media.decodeWaveFile
 import kaizo.co.WhisperVoiceKeyboard.recorder.Recorder
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.async
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kaizo.co.WhisperVoiceKeyboard.audio.Chunker
+import java.util.Collections
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
@@ -169,6 +175,11 @@ class VoiceKeyboardInputMethodService : InputMethodService(), LifecycleOwner,
     private var engine: SpeechEngine? = null
     private var loadedModel: ModelEntry? = null
     private var recordedFile: File? = null
+    // While a recording runs, finished pieces of it are transcribed in the background (see Chunker),
+    // so stopping leaves only the last piece to do. One engine call at a time.
+    private val engineLock = Mutex()
+    private var chunker: Chunker? = null
+    private val chunkTexts: MutableList<Deferred<String?>> = Collections.synchronizedList(mutableListOf())
     private var recorder: Recorder = Recorder()
     var canTranscribe by mutableStateOf(false)
         private set
@@ -514,20 +525,81 @@ class VoiceKeyboardInputMethodService : InputMethodService(), LifecycleOwner,
         }
     }
 
+    /** The engine's text for [data], with its special tokens removed; null without an engine. */
+    private suspend fun recognize(data: FloatArray): String? {
+        val raw = engineLock.withLock { engine?.transcribe(data, threads(), language(), translateTo()) }?.trim() ?: return null
+        // remove special tokens like [MUSIC] or [BLANK_AUDIO]
+        // bizarrely, it sometimes also does *music* or (music) so handle these case-s too
+        // there's another case with flanking ♪ but it seems slightly different
+        return raw.replace(Regex("""\[[-_a-zA-Z0-9 ]*]"""), "")
+            .replace(Regex("""\*[-_a-zA-Z0-9 ]*\*"""), "")
+            .replace(Regex("""\([-_a-zA-Z0-9 ]*\)"""), "")
+    }
+
+    // a piece of a running recording: transcribed now, joined with the rest when the recording stops
+    private fun transcribePiece(samples: FloatArray) {
+        chunkTexts += scope.async {
+            val speech = trimSilence(samples) ?: return@async null
+            try {
+                recognize(speech)?.trim()?.takeIf { it.isNotEmpty() }.also { printMessage("piece ${samples.size / 16} ms: $it\n") }
+            } catch (e: Exception) { Log.w(LOG_TAG, e); null }
+        }
+    }
+
+    // When the recording stops: wait for the pieces already in flight, do the last one, join, commit.
+    private suspend fun finishRecording() {
+        if (!canTranscribe) return
+        canTranscribe = false
+        try {
+            val tail = chunker?.flush()
+            chunker = null
+            val earlier = synchronized(chunkTexts) { chunkTexts.toList().also { chunkTexts.clear() } }
+            val start = System.currentTimeMillis()
+            printMessage("${earlier.size} pieces done early, ${(tail?.size ?: 0) / 16} ms left\n")
+            val parts = mutableListOf<String>()
+            for (d in earlier) d.await()?.let { parts += it }
+            val tailSpeech = tail?.let { trimSilence(it) }
+            if (tailSpeech != null) recognize(tailSpeech)?.trim()?.takeIf { it.isNotEmpty() }?.let { parts += it }
+            if (parts.isEmpty()) {
+                printMessage("No speech heard\n")
+                canTranscribe = true
+                return
+            }
+            commitRecognized(joinPieces(parts), start)
+        } catch (e: Exception) {
+            Log.w(LOG_TAG, e)
+            printMessage("${e.localizedMessage}\n")
+        }
+        canTranscribe = true
+    }
+
+    private fun discardPieces() {
+        chunker = null
+        synchronized(chunkTexts) {
+            chunkTexts.forEach { it.cancel() }
+            chunkTexts.clear()
+        }
+    }
+
     private suspend fun transcribeAudio(data: FloatArray) {
         try {
             printMessage("${data.size / (16000 / 1000)} ms\n")
-            val nThreads = threads()
             printMessage("Transcribing data...\n")
             val start = System.currentTimeMillis()
-            var text = engine?.transcribe(data, nThreads, language(), translateTo())?.trim()
+            commitRecognized(recognize(data), start)
+        } catch (e: Exception) {
+            Log.w(LOG_TAG, e)
+            printMessage("${e.localizedMessage}\n")
+        }
+
+        canTranscribe = true
+    }
+
+    // spacing, case, spoken marks, then the one commit into the field
+    private fun commitRecognized(recognized: String?, start: Long) {
+        try {
+            var text = recognized
             printMessage(text.toString())
-            // remove special tokens like [MUSIC] or [BLANK_AUDIO]
-            // bizarrely, it sometimes also does *music* or (music) so handle these case-s too
-            // there's another case with flanking ♪ but it seems slightly different
-            text = text?.replace(Regex("""\[[-_a-zA-Z0-9 ]*]"""), "")
-            text = text?.replace(Regex("""\*[-_a-zA-Z0-9 ]*\*"""), "")
-            text = text?.replace(Regex("""\([-_a-zA-Z0-9 ]*\)"""), "")
             // swapping words inside a sentence shouldn't leave the model's closing period behind
             val replacedText = replaced
             if (replacedText != null && replacedText.last() !in ".!?") {
@@ -597,8 +669,17 @@ class VoiceKeyboardInputMethodService : InputMethodService(), LifecycleOwner,
             Log.w(LOG_TAG, e)
             printMessage("${e.localizedMessage}\n")
         }
+    }
 
-        canTranscribe = true
+    // Each piece starts with a capital from the model; inside a sentence that is wrong.
+    private fun joinPieces(parts: List<String>): String {
+        val out = StringBuilder()
+        for (p in parts) {
+            val piece = if (out.isNotEmpty() && out.last() !in ".!?\n") matchFirstLetterCase(p, upper = false) else p
+            if (out.isNotEmpty()) out.append(' ')
+            out.append(piece)
+        }
+        return out.toString()
     }
 
     fun cancelRecord() = scope.launch {
@@ -609,6 +690,7 @@ class VoiceKeyboardInputMethodService : InputMethodService(), LifecycleOwner,
                 }
                 recorder.stopRecording()
                 isRecording = false
+                discardPieces()
             }
         } catch (e: Exception) {
             Log.w(LOG_TAG, e)
@@ -634,7 +716,7 @@ class VoiceKeyboardInputMethodService : InputMethodService(), LifecycleOwner,
                 }
                 recorder.stopRecording()
                 isRecording = false
-                recordedFile?.let { transcribeFile(it) }
+                finishRecording()
             } else {
                 if (checkBoolPref(R.string.pause_media) == true) {
                     // Request focus
@@ -651,7 +733,10 @@ class VoiceKeyboardInputMethodService : InputMethodService(), LifecycleOwner,
                 replaced = null
                 val file = getTempFileForRecording()
                 micLevel = 0f
-                recorder.startRecording(file, onError, onLevel = { micLevel = it })
+                discardPieces()
+                val pieces = Chunker { transcribePiece(it) }
+                chunker = pieces
+                recorder.startRecording(file, onError, onLevel = { micLevel = it }, onAudio = { buf, n -> pieces.add(buf, n) })
                 isRecording = true
                 recordedFile = file
                 // spacing and capitalization are decided here, before any preview is composing
