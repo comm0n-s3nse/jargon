@@ -2,5 +2,5 @@
 • Gesture tutorial in Essential Setup
 • Spoken punctuation and emoji: "question mark", "new line", "dot dot dot", "smiley face", "facepalm"…
 • Settings split into Speech model and Translation model; Moonshine Tiny and Canary 180M Flash added
-• Update check in About, and a daily check you can switch on
+• Update check in About, and a check on opening settings you can switch on
 • Enter: flick up to switch keyboard, hold for settings

@@ -101,8 +101,8 @@ it can sit next to the Play or F-Droid app.
   (lol, imo, tbh…) stays lowercase.
 - **Gesture tutorial** (1.1): a black page in Essential Setup that walks the seven gestures by
   having you do them; the keys report each one. Always shown in a debug build.
-- **Update check** (1.1): on demand in About, or daily if switched on in Behavior; it asks GitHub
-  for the newest release and links to its page. The keyboard process never uses the network.
+- **Update check** (1.1): on demand in About, or whenever settings open if switched on in
+  Behavior; it asks GitHub for the newest release and links to its page. The keyboard process never uses the network.
 - **Speech model and Translation model** sections (1.1), six recommended models: Whisper Tiny,
   Fluid Speech Mini, Moonshine Tiny; Whisper Small, Canary 180M Flash, Canary 1B.
 - **About and licenses screen** (Settings): credits for Kaiboard, whisper.cpp, Whisper, parakeet.cpp,
