@@ -13,7 +13,9 @@ fun isSingleLineField(inputType: Int): Boolean =
  */
 fun withoutLoneWordPeriod(text: String): String {
     val t = text.trim()
-    return if (t.endsWith('.') && !t.dropLast(1).any { it.isWhitespace() } && t.length > 1) t.dropLast(1) else text
+    val word = t.dropLast(1)
+    val lone = t.endsWith('.') && !t.endsWith("..") && word.isNotEmpty() && word.none { it.isWhitespace() } && word.any { it.isLetterOrDigit() }
+    return if (lone) word else text
 }
 
 /**
