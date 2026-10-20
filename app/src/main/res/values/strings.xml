@@ -131,7 +131,9 @@
     <string name="tut_undo">Drag backspace to the left.</string>
     <string name="tut_undo_hint">That undoes what the keyboard last typed. Hold backspace to delete word by word.</string>
     <string name="tut_flick">Flick enter upward.</string>
-    <string name="tut_flick_hint">That switches to your other keyboard. Then come back here with the button.</string>
+    <string name="tut_flick_hint">That switches to your other keyboard.</string>
+    <string name="tut_flick_back">Now bring Jargon back.</string>
+    <string name="tut_flick_back_hint">Your other keyboard is up. Tap the button and pick Jargon; that is how you switch to it any time.</string>
     <string name="tut_settings">Hold enter.</string>
     <string name="tut_settings_hint">That opens settings, and finishes this tutorial.</string>
     <string name="tut_bring_back">Bring Jargon back</string>

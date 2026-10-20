@@ -65,18 +65,14 @@ fun TutorialScreen(onDone: () -> Unit, onLeave: () -> Unit) {
             onDone()
             return@LaunchedEffect
         }
+        // after the flick the other keyboard is up; watch for Jargon coming back
         while (true) {
             val now = currentKeyboardIsOurs(context)
-            if (now != ours) ours = now
-            if (step == Step.FLICK && !ours) {
-                // the flick happened: wait here until Jargon is the keyboard again, then move on
-                while (!currentKeyboardIsOurs(context)) delay(500)
-                ours = true
-                Tutorial.advance()
-                focus.requestFocus()
-                break
+            if (now != ours) {
+                ours = now
+                if (now) focus.requestFocus()
             }
-            delay(700)
+            delay(500)
         }
     }
 
@@ -100,14 +96,17 @@ fun TutorialScreen(onDone: () -> Unit, onLeave: () -> Unit) {
             TextButton(onClick = onLeave) { Text(stringResource(R.string.tutorial_leave), color = Color(0xFFAAAAAA)) }
         }
         Spacer(Modifier.height(32.dp))
-        val (title, hint) = when (step) {
-            Step.TAP -> R.string.tut_tap to R.string.tut_tap_hint
+        val (title, hint) = when {
+            step == Step.SETTINGS && !ours -> R.string.tut_flick_back to R.string.tut_flick_back_hint
+            else -> when (step) {
+                Step.TAP -> R.string.tut_tap to R.string.tut_tap_hint
             Step.TAP_CANCEL -> R.string.tut_tap_cancel to R.string.tut_tap_cancel_hint
             Step.HOLD -> R.string.tut_hold to R.string.tut_hold_hint
             Step.HOLD_CANCEL -> R.string.tut_hold_cancel to R.string.tut_hold_cancel_hint
             Step.UNDO -> R.string.tut_undo to R.string.tut_undo_hint
             Step.FLICK -> R.string.tut_flick to R.string.tut_flick_hint
             Step.SETTINGS, Step.DONE -> R.string.tut_settings to R.string.tut_settings_hint
+            }
         }
         Text(stringResource(title), color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Bold, lineHeight = 32.sp)
         Spacer(Modifier.height(12.dp))
@@ -115,7 +114,7 @@ fun TutorialScreen(onDone: () -> Unit, onLeave: () -> Unit) {
         if (!ours) {
             Spacer(Modifier.height(24.dp))
             Button(onClick = { showKeyboardPicker(context) }) {
-                Text(stringResource(if (step == Step.FLICK) R.string.tut_bring_back else R.string.tut_switch_to))
+                Text(stringResource(if (step.ordinal >= Step.SETTINGS.ordinal) R.string.tut_bring_back else R.string.tut_switch_to))
             }
         }
         Spacer(Modifier.weight(1f))
