@@ -188,18 +188,25 @@ fun ModelSettings() {
         models = store.list()
     }
 
-    Column {
+    // the active model's section is where its language rows go
+    val activeTranslates = active?.let { catalogFor(it.fileName)?.translates == true || it.canTranslate } == true
+
+    @Composable
+    fun header(text: Int) {
         Text(
-            stringResource(R.string.model_header),
+            stringResource(text),
             fontSize = 24.sp,
             fontWeight = FontWeight.Bold,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(start = 16.dp, top = 16.dp)
         )
+    }
 
-        // the recommended models, installed or not
-        CATALOG.forEach { c ->
+    Column {
+        // one recommended model, installed or not
+        @Composable
+        fun catalogRow(c: CatalogModel) {
             val entry = installed[c.file]
             val supported = !c.needsGguf || CpuFeatures.supportsGguf()
             val headline = "${c.name} · ${c.by}"
@@ -258,6 +265,9 @@ fun ModelSettings() {
             }
         }
 
+        header(R.string.model_header)
+        CATALOG.filter { !it.translates }.forEach { catalogRow(it) }
+
         // models added by hand that are not one of the recommended ones
         models.filter { catalogFor(it.fileName) == null }.forEach { model ->
             val supported = store.runnable(model)
@@ -286,6 +296,8 @@ fun ModelSettings() {
         }
 
         // the language rows need a model to describe; none is installed on a fresh unbundled copy
+        @Composable
+        fun languageRows() {
         if (active != null) {
             ListItem(
                 headlineContent = {
@@ -357,6 +369,13 @@ fun ModelSettings() {
                 )
             }
         }
+        }
+        if (!activeTranslates) languageRows()
+
+        // the models that write in a language you choose: Whisper's multilingual ones and Canary
+        header(R.string.translation_header)
+        CATALOG.filter { it.translates }.forEach { catalogRow(it) }
+        if (activeTranslates) languageRows()
 
         ListItem(
             headlineContent = { Text(stringResource(R.string.model_add)) },

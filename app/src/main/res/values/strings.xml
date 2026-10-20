@@ -39,6 +39,7 @@
     <string name="model_loading">Loading model…</string>
     <string name="model_fallback">That model wouldn\'t load; using the built-in one</string>
     <string name="model_header">Speech model</string>
+    <string name="translation_header">Translation model</string>
     <string name="model_built_in">built-in</string>
     <string name="model_english_only">English only</string>
     <string name="model_multilingual">Multilingual</string>

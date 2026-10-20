@@ -20,6 +20,7 @@ data class CatalogModel(
     val builtIn: Boolean = false,
     val note: String? = null,
     val engine: ModelEngine = ModelEngine.WHISPER_CPP, // which engine runs this file
+    val translates: Boolean = false, // listed under "Translation model": it writes in a language you choose
 ) {
     val downloadable get() = url != null
     val needsGguf get() = engine != ModelEngine.WHISPER_CPP
@@ -29,6 +30,9 @@ private const val HF = "https://huggingface.co"
 
 // peak memory of transcribe.cpp's CLI on a ThinkPhone, 7.5 s clip: 1237 MB (Q4_K_M, 4 threads)
 private const val CANARY_RAM_MB = 1250
+// peak resident memory of transcribe.cpp's CLI on a OnePlus 15, 7.5 s clip, Q8_0, 4 threads
+private const val CANARY_180M_RAM_MB = 390
+private const val MOONSHINE_RAM_MB = 65
 
 // RAM figures are peak resident memory measured on phones for a 7.5 s clip, rounded (see each model's
 // note in KAIBOARD.md); the
@@ -60,6 +64,19 @@ val CATALOG = listOf(
         engine = ModelEngine.PARAKEET_CPP,
     ),
     CatalogModel(
+        id = "moonshine-tiny", name = "Moonshine Tiny", by = "Useful Sensors",
+        file = "moonshine-tiny-Q8_0.gguf", ramMb = MOONSHINE_RAM_MB,
+        summary = "English only, light and quick (beta)",
+        about = "Quicker than Whisper Tiny on short dictation, with lighter punctuation. It stops " +
+            "writing after about 45 seconds of speech, so keep dictations short until the keyboard " +
+            "learns to split long ones.",
+        credit = "Moonshine Tiny by Useful Sensors, MIT license, converted for transcribe.cpp by myflow-ai.",
+        url = "$HF/myflow-ai/moonshine-tiny-gguf/resolve/main/moonshine-tiny-Q8_0.gguf",
+        sha256 = "2fd348d7b38f97d309cc3ec6848f3f57f537b80244950f07d2637e463f95a3a1",
+        sizeBytes = 35_466_912,
+        engine = ModelEngine.TRANSCRIBE_CPP,
+    ),
+    CatalogModel(
         id = "whisper-small", name = "Whisper Small", by = "OpenAI",
         file = "ggml-small-q5_1.bin", ramMb = 600,
         summary = "Multilingual, translation (beta)",
@@ -69,6 +86,20 @@ val CATALOG = listOf(
         url = "$HF/ggerganov/whisper.cpp/resolve/main/ggml-small-q5_1.bin",
         sha256 = "ae85e4a935d7a567bd102fe55afc16bb595bdb618e11b2fc7591bc08120411bb",
         sizeBytes = 190_085_487,
+        translates = true,
+    ),
+    CatalogModel(
+        id = "canary-180m", name = "Canary 180M Flash", by = "NVIDIA",
+        file = "canary-180m-flash-Q8_0.gguf", ramMb = CANARY_180M_RAM_MB,
+        summary = "English, German, Spanish and French; translates between them (beta)",
+        about = "The small Canary: listens in English, German, Spanish or French and can translate " +
+            "between them. Quicker than Whisper Tiny on a mid-range phone.",
+        credit = "Canary-180M-Flash by NVIDIA, CC BY 4.0, converted for transcribe.cpp by handy-computer.",
+        url = "$HF/handy-computer/canary-180m-flash-gguf/resolve/main/canary-180m-flash-Q8_0.gguf",
+        sha256 = "f942ab746040b531a29ab78ca3afc8dc9564efd8e4c942b5541e53644be9c408",
+        sizeBytes = 218_447_648,
+        engine = ModelEngine.TRANSCRIBE_CPP,
+        translates = true,
     ),
     CatalogModel(
         id = "canary-1b", name = "Canary 1B", by = "NVIDIA",
@@ -82,6 +113,7 @@ val CATALOG = listOf(
         sha256 = "49e0a67e219bec95a254c2348460b6350e75a7ac6f93a131e48244b4c7cb53b9",
         sizeBytes = 735_476_448,
         engine = ModelEngine.TRANSCRIBE_CPP,
+        translates = true,
     ),
 )
 
