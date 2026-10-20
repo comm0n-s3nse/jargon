@@ -21,6 +21,7 @@ data class CatalogModel(
     val note: String? = null,
     val engine: ModelEngine = ModelEngine.WHISPER_CPP, // which engine runs this file
     val translates: Boolean = false, // listed under "Translation model": it writes in a language you choose
+    val recommended: Boolean = false, // the one to get, for a phone with the room: said so in its row
 ) {
     val downloadable get() = url != null
     val needsGguf get() = engine != ModelEngine.WHISPER_CPP
@@ -76,28 +77,31 @@ val CATALOG = listOf(
         engine = ModelEngine.TRANSCRIBE_CPP,
     ),
     CatalogModel(
-        id = "whisper-small", name = "Whisper Small", by = "OpenAI",
-        file = "ggml-small-q5_1.bin", ramMb = 600,
-        summary = "Multilingual, translation (beta)",
-        about = "Understands many languages. Set Language to the one you want written, and speech " +
-            "in another language comes out translated. Translation quality varies.",
-        credit = "Whisper by OpenAI, MIT license, converted for whisper.cpp.",
-        url = "$HF/ggerganov/whisper.cpp/resolve/main/ggml-small-q5_1.bin",
-        sha256 = "ae85e4a935d7a567bd102fe55afc16bb595bdb618e11b2fc7591bc08120411bb",
-        sizeBytes = 190_085_487,
-        translates = true,
-    ),
-    CatalogModel(
         id = "canary-180m", name = "Canary 180M Flash", by = "NVIDIA",
         file = "canary-180m-flash-Q8_0.gguf", ramMb = CANARY_180M_RAM_MB,
         summary = "English, German, Spanish and French; translates between them (beta)",
         about = "The small Canary: listens in English, German, Spanish or French and can translate " +
-            "between them. Quicker than Whisper Tiny on a mid-range phone.",
+            "between them. On a 2025 phone it finished a minute of dictation half a second after " +
+            "the stop, with cleaner text than Whisper Tiny. The one to get if your phone has the room.",
+        recommended = true,
         credit = "Canary-180M-Flash by NVIDIA, CC BY 4.0, converted for transcribe.cpp by handy-computer.",
         url = "$HF/handy-computer/canary-180m-flash-gguf/resolve/main/canary-180m-flash-Q8_0.gguf",
         sha256 = "f942ab746040b531a29ab78ca3afc8dc9564efd8e4c942b5541e53644be9c408",
         sizeBytes = 218_447_648,
         engine = ModelEngine.TRANSCRIBE_CPP,
+        translates = true,
+    ),
+    CatalogModel(
+        id = "whisper-small", name = "Whisper Small", by = "OpenAI",
+        file = "ggml-small-q5_1.bin", ramMb = 600,
+        summary = "99 languages, translation (beta); the slowest here",
+        about = "Understands 99 languages. Set Language to the one you want written, and speech " +
+            "in another language comes out translated. Translation quality varies, and it is the " +
+            "slowest model here; Canary 180M Flash is quicker if your languages are among its four.",
+        credit = "Whisper by OpenAI, MIT license, converted for whisper.cpp.",
+        url = "$HF/ggerganov/whisper.cpp/resolve/main/ggml-small-q5_1.bin",
+        sha256 = "ae85e4a935d7a567bd102fe55afc16bb595bdb618e11b2fc7591bc08120411bb",
+        sizeBytes = 190_085_487,
         translates = true,
     ),
     CatalogModel(

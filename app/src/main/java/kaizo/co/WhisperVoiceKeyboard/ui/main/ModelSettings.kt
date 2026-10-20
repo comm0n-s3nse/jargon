@@ -215,7 +215,7 @@ fun ModelSettings() {
                     headlineContent = { Text(headline) },
                     supportingContent = {
                         Text(
-                            if (supported) "${ramLabel(c.ramMb)} · ${c.summary}"
+                            if (supported) (if (c.recommended) stringResource(R.string.model_recommended) + " · " else "") + "${ramLabel(c.ramMb)} · ${c.summary}"
                             else stringResource(R.string.model_unsupported)
                         )
                     },
@@ -237,7 +237,7 @@ fun ModelSettings() {
                             rowText[c.id] ?: when {
                                 !c.downloadable -> c.summary
                                 !supported -> stringResource(R.string.model_unsupported)
-                                else -> "${ramLabel(c.ramMb)} · ${c.summary}"
+                                else -> (if (c.recommended) stringResource(R.string.model_recommended) + " · " else "") + "${ramLabel(c.ramMb)} · ${c.summary}"
                             }
                         )
                     },

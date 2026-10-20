@@ -103,7 +103,7 @@
     <string name="no_model_hint">Hold ⏎ to get a speech model</string>
     <string name="welcome_title">Welcome to %1$s</string>
     <string name="welcome_private">Everything you say is recognized on this phone. Nothing leaves it.</string>
-    <string name="welcome_no_model">This copy ships without a speech model, so every byte of the app is open source you can read, and you choose the model that fits your phone. Download one to start. The first is small and fine for most phones; the big ones translate.</string>
+    <string name="welcome_no_model">This copy ships without a speech model, so every byte of the app is open source you can read, and you choose the model that fits your phone. Download one to start: Whisper Tiny is small and fine for most phones; Canary 180M Flash is the one to get if your phone has the room.</string>
     <string name="welcome_continue">Continue</string>
     <string name="about_version_name">%1$s %2$s</string>
     <string name="about_release_notes">Release notes</string>
@@ -134,11 +134,12 @@
     <string name="tut_flick">Flick enter upward.</string>
     <string name="tut_flick_hint">That switches to your other keyboard.</string>
     <string name="tut_flick_back">Now bring Jargon back.</string>
-    <string name="tut_flick_back_hint">Your other keyboard is up. Tap the button and pick Jargon; that is how you switch to it any time.</string>
+    <string name="tut_flick_back_hint">Your other keyboard is up. Tap the keyboard icon in your navigation bar, or the button below, and pick Jargon; that is how you switch to it any time.</string>
     <string name="tut_settings">Hold enter.</string>
     <string name="tut_settings_hint">That opens settings, and finishes this tutorial.</string>
     <string name="tut_bring_back">Bring Jargon back</string>
     <string name="tut_switch_to">Switch to Jargon</string>
     <string name="tut_box">Your words land here</string>
     <string name="tut_clear">Clear</string>
+    <string name="model_recommended">Recommended</string>
 </resources>
