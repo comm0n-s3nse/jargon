@@ -344,6 +344,7 @@ class VoiceKeyboardInputMethodService : InputMethodService(), LifecycleOwner,
         try {
             if (needsLoad) loadModel(store, wanted)
             tuneIfNeeded()
+            preloadDetector(store)
         } catch (e: Exception) {
             Log.w(LOG_TAG, e)
             printMessage("${e.localizedMessage}\n")
@@ -470,6 +471,20 @@ class VoiceKeyboardInputMethodService : InputMethodService(), LifecycleOwner,
         }
         if (!switched) {
             (getSystemService(INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager).showInputMethodPicker()
+        }
+    }
+
+    // With Auto on a Canary model, the detector is loaded with the model rather than on the first
+    // dictation, so that one does not pay for it (about a second on a mid-range phone).
+    private suspend fun preloadDetector(store: ModelStore) = withContext(Dispatchers.IO) {
+        val speech = engine ?: return@withContext
+        if (langId != null || language() != "auto" || speech.canDetectLanguage) return@withContext
+        val file = store.installed(LANG_ID_FILE) ?: return@withContext
+        try {
+            langId = LangIdContext.load(file.absolutePath)
+            printMessage("Loaded the language detector.\n")
+        } catch (e: Exception) {
+            Log.w(LOG_TAG, e)
         }
     }
 
