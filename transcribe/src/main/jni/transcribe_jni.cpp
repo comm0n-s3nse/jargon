@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "transcribe.h"
+#include "transcribe/langid.h"
 
 namespace {
 
@@ -145,6 +146,96 @@ Java_com_transcribecpp_TranscribeLib_free(JNIEnv *, jobject, jlong ptr) {
     auto *h = reinterpret_cast<Handle *>(ptr);
     if (!h) return;
     if (h->session) transcribe_session_free(h->session); // before the model: it only borrows it
+    if (h->model) transcribe_model_free(h->model);
+    delete h;
+}
+
+// ---- Language ID: which language a clip is in, from a LANGID model (VoxLingua107), optionally
+// restricted to the languages the speech model knows. Not transcription: it returns a code.
+
+struct LangIdHandle {
+    transcribe_model *model = nullptr;
+    transcribe_langid_session *session = nullptr;
+};
+
+JNIEXPORT jlong JNICALL
+Java_com_transcribecpp_LangIdLib_load(JNIEnv *env, jobject, jstring path) {
+    const char *p = env->GetStringUTFChars(path, nullptr);
+    transcribe_model *model = nullptr;
+    transcribe_status st = transcribe_model_load_file(p, nullptr, &model);
+    env->ReleaseStringUTFChars(path, p);
+    if (st != TRANSCRIBE_OK || !model) {
+        last_error = transcribe_status_string(st);
+        return 0;
+    }
+    transcribe_langid_session *session = nullptr;
+    st = transcribe_langid_session_init(model, nullptr, &session);
+    if (st != TRANSCRIBE_OK || !session) {
+        last_error = transcribe_status_string(st);
+        transcribe_model_free(model);
+        return 0;
+    }
+    auto *h = new LangIdHandle();
+    h->model = model;
+    h->session = session;
+    return reinterpret_cast<jlong>(h);
+}
+
+JNIEXPORT jstring JNICALL
+Java_com_transcribecpp_LangIdLib_lastError(JNIEnv *env, jobject) {
+    return env->NewStringUTF(last_error.c_str());
+}
+
+// "code;p;allowed_mass" for the most likely language, or null on failure (then lastError()).
+JNIEXPORT jstring JNICALL
+Java_com_transcribecpp_LangIdLib_detect(JNIEnv *env, jobject, jlong ptr, jfloatArray audio, jobjectArray allowed) {
+    auto *h = reinterpret_cast<LangIdHandle *>(ptr);
+    std::vector<std::string> codes;
+    std::vector<const char *> code_ptrs;
+    if (allowed) {
+        const jsize n = env->GetArrayLength(allowed);
+        for (jsize i = 0; i < n; i++) {
+            auto js = static_cast<jstring>(env->GetObjectArrayElement(allowed, i));
+            if (!js) continue;
+            const char *c = env->GetStringUTFChars(js, nullptr);
+            if (c && *c) codes.emplace_back(c);
+            if (c) env->ReleaseStringUTFChars(js, c);
+            env->DeleteLocalRef(js);
+        }
+        for (auto &c : codes) code_ptrs.push_back(c.c_str());
+    }
+    transcribe_langid_params lp;
+    transcribe_langid_params_init(&lp);
+    if (!code_ptrs.empty()) {
+        lp.allowed = code_ptrs.data();
+        lp.n_allowed = static_cast<int32_t>(code_ptrs.size());
+    }
+    jfloat *pcm = env->GetFloatArrayElements(audio, nullptr);
+    const jsize n = env->GetArrayLength(audio);
+    transcribe_status st = transcribe_langid_run(h->session, pcm, n, &lp);
+    env->ReleaseFloatArrayElements(audio, pcm, JNI_ABORT);
+    if (st != TRANSCRIBE_OK) {
+        last_error = transcribe_status_string(st);
+        return nullptr;
+    }
+    transcribe_langid_result r;
+    transcribe_langid_result_init(&r);
+    transcribe_langid_candidate c;
+    transcribe_langid_candidate_init(&c);
+    if (transcribe_langid_get_result(h->session, &r) != TRANSCRIBE_OK || r.n_candidates < 1 ||
+        transcribe_langid_get_candidate(h->session, 0, &c) != TRANSCRIBE_OK || !c.code) {
+        last_error = "no language candidate";
+        return nullptr;
+    }
+    const std::string out = std::string(c.code) + ";" + std::to_string(c.p) + ";" + std::to_string(r.allowed_mass);
+    return env->NewStringUTF(out.c_str());
+}
+
+JNIEXPORT void JNICALL
+Java_com_transcribecpp_LangIdLib_free(JNIEnv *, jobject, jlong ptr) {
+    auto *h = reinterpret_cast<LangIdHandle *>(ptr);
+    if (!h) return;
+    if (h->session) transcribe_langid_session_free(h->session);
     if (h->model) transcribe_model_free(h->model);
     delete h;
 }

@@ -122,7 +122,13 @@ class ModelStore(private val context: Context) {
 
     private val dir = File(context.filesDir, "models").apply { mkdirs() }
 
-    fun list(): List<ModelEntry> {
+    /** The speech models: everything installed except the helpers the catalog marks hidden. */
+    fun list(): List<ModelEntry> = listAll().filter { catalogFor(it.fileName)?.hidden != true }
+
+    /** An installed file by name, hidden helpers included, or null. */
+    fun installed(fileName: String): File? = File(dir, fileName).takeIf { it.isFile }
+
+    fun listAll(): List<ModelEntry> {
         val bundled = (context.assets.list("models") ?: emptyArray())
             .filter { it.endsWith(".bin") || it.endsWith(".gguf") }
             .map { ModelEntry("asset:$it", it, assetSize(it), builtIn = true) }

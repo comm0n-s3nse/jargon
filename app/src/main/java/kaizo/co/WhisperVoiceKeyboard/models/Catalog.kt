@@ -22,6 +22,7 @@ data class CatalogModel(
     val engine: ModelEngine = ModelEngine.WHISPER_CPP, // which engine runs this file
     val translates: Boolean = false, // listed under "Translation model": it writes in a language you choose
     val recommended: Boolean = false, // the one to get, for a phone with the room: said so in its row
+    val hidden: Boolean = false, // not a speech model: never listed or selectable, fetched when a setting needs it
 ) {
     val downloadable get() = url != null
     val needsGguf get() = engine != ModelEngine.WHISPER_CPP
@@ -37,7 +38,23 @@ private const val CANARY_180M_RAM_MB = 390
 // RAM figures are peak resident memory measured on phones for a 7.5 s clip, rounded (see each model's
 // note in KAIBOARD.md); the
 // download sizes and checksums are those of the files that were tested with this app.
+/** The language detector that gives Canary its "Auto": VoxLingua107, 107 languages, 27 MB. */
+const val LANG_ID_FILE = "lang-id-voxlingua107-ecapa-Q8_0.gguf"
+
 val CATALOG = listOf(
+    CatalogModel(
+        id = "lang-id", name = "Language detector", by = "SpeechBrain",
+        file = LANG_ID_FILE, ramMb = 60,
+        summary = "Tells which language is being spoken",
+        about = "Not a speech model: it listens to the first moment of a dictation and tells Canary " +
+            "which of its languages you are speaking, so \"I speak\" can be Auto.",
+        credit = "VoxLingua107 ECAPA-TDNN by SpeechBrain, Apache 2.0, converted for transcribe.cpp by handy-computer.",
+        url = "$HF/handy-computer/lang-id-voxlingua107-ecapa-gguf/resolve/main/$LANG_ID_FILE",
+        sha256 = "063e6cb0af3d53085fc7d68356dfde5ecee2ffa7bc79855f7e4ff930081bfe3a",
+        sizeBytes = 26_693_632,
+        engine = ModelEngine.TRANSCRIBE_CPP,
+        hidden = true,
+    ),
     CatalogModel(
         id = "whisper-tiny", name = "Whisper Tiny", by = "OpenAI",
         // 8-bit quantized: 44 MB instead of 78, a fifth faster, 30 MB less memory, same output on test speech

@@ -52,6 +52,8 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kaizo.co.WhisperVoiceKeyboard.audio.Chunker
+import com.transcribecpp.LangIdContext
+import kaizo.co.WhisperVoiceKeyboard.models.LANG_ID_FILE
 import java.util.Collections
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -158,6 +160,9 @@ class VoiceKeyboardInputMethodService : InputMethodService(), LifecycleOwner,
         // hold the engine for seconds, and the system gives the main thread five before it calls
         // the app unresponsive. Detach what needs freeing and let it finish on its own.
         val leaving = engine
+        val leavingDetector = langId
+        langId = null
+        if (leavingDetector != null) scope.launch { try { leavingDetector.release() } catch (e: Exception) { Log.w(LOG_TAG, e) } }
         val wasRecording = isRecording
         engine = null
         job.cancel()
@@ -179,6 +184,9 @@ class VoiceKeyboardInputMethodService : InputMethodService(), LifecycleOwner,
     // While a recording runs, finished pieces of it are transcribed in the background (see Chunker),
     // so stopping leaves only the last piece to do. One engine call at a time.
     private val engineLock = Mutex()
+    // the language detector, loaded on first need and kept; and what it heard in this recording
+    private var langId: LangIdContext? = null
+    private var detected: String? = null
     private var chunker: Chunker? = null
     private val chunkTexts: MutableList<Deferred<String?>> = Collections.synchronizedList(mutableListOf())
     private var recorder: Recorder = Recorder()
@@ -465,6 +473,29 @@ class VoiceKeyboardInputMethodService : InputMethodService(), LifecycleOwner,
         }
     }
 
+    // "Auto" on a model that cannot tell languages apart: the detector decides once per recording,
+    // from the first piece it sees, among the languages the model knows. Without the detector
+    // installed, English, as before.
+    private suspend fun spokenLanguage(data: FloatArray): String {
+        val setting = language()
+        val speech = engine ?: return setting
+        if (setting != "auto" || speech.canDetectLanguage) return setting
+        detected?.let { return it }
+        val guess = try {
+            val file = ModelStore(application).installed(LANG_ID_FILE)
+            if (file == null) null else {
+                val det = langId ?: LangIdContext.load(file.absolutePath).also { langId = it }
+                det.detect(data, speech.languages)?.also {
+                    printMessage("language: ${it.code} (p=${"%.2f".format(it.p)}, in-set ${"%.2f".format(it.allowedMass)})\n")
+                }?.code
+            }
+        } catch (e: Exception) {
+            Log.w(LOG_TAG, e)
+            null
+        }
+        return (guess ?: "en").also { detected = it }
+    }
+
     // the names and terms taught in Settings, one per line
     private fun vocabulary(): List<String> =
         sharedPref?.getString(VOCABULARY_KEY, null)?.lines()?.map { it.trim() }?.filter { it.isNotEmpty() }.orEmpty()
@@ -532,7 +563,7 @@ class VoiceKeyboardInputMethodService : InputMethodService(), LifecycleOwner,
 
     /** The engine's text for [data], with its special tokens removed; null without an engine. */
     private suspend fun recognize(data: FloatArray): String? {
-        val raw = engineLock.withLock { engine?.transcribe(data, threads(), language(), translateTo(), vocabulary()) }?.trim() ?: return null
+        val raw = engineLock.withLock { engine?.transcribe(data, threads(), spokenLanguage(data), translateTo(), vocabulary()) }?.trim() ?: return null
         // remove special tokens like [MUSIC] or [BLANK_AUDIO]
         // bizarrely, it sometimes also does *music* or (music) so handle these case-s too
         // there's another case with flanking ♪ but it seems slightly different
@@ -740,6 +771,7 @@ class VoiceKeyboardInputMethodService : InputMethodService(), LifecycleOwner,
                 replaced = null
                 val file = getTempFileForRecording()
                 micLevel = 0f
+                detected = null
                 discardPieces()
                 val pieces = Chunker { transcribePiece(it) }
                 chunker = pieces

@@ -9,6 +9,8 @@ import com.transcribecpp.TranscribeContext
  */
 class TranscribeEngine(private val context: TranscribeContext) : SpeechEngine {
     override val canTranslate get() = context.capabilities.canTranslate
+    override val canDetectLanguage get() = context.capabilities.canDetectLanguage
+    override val languages get() = context.capabilities.languages
 
     override suspend fun transcribe(
         samples: FloatArray, threads: Int, language: String, translateTo: String?, vocabulary: List<String>,

@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.sp
 import kaizo.co.WhisperVoiceKeyboard.R
 import kaizo.co.WhisperVoiceKeyboard.models.ACTIVE_MODEL_KEY
 import kaizo.co.WhisperVoiceKeyboard.models.CATALOG
+import kaizo.co.WhisperVoiceKeyboard.models.LANG_ID_FILE
 import kaizo.co.WhisperVoiceKeyboard.models.CatalogModel
 import kaizo.co.WhisperVoiceKeyboard.models.CpuFeatures
 import kaizo.co.WhisperVoiceKeyboard.models.LANGUAGES
@@ -119,7 +120,7 @@ fun ModelSettings() {
             val text = mutableMapOf<String, String>()
             val running = mutableSetOf<String>()
             for (m in CATALOG) {
-                if (!m.downloadable || models.any { it.fileName == m.file } || m.id in finishing) continue
+                if (!m.downloadable || models.any { it.fileName == m.file } || (m.hidden && store.installed(m.file) != null) || m.id in finishing) continue
                 when (val st = downloader.poll(m)) {
                     is ModelDownloader.State.Idle -> {}
                     is ModelDownloader.State.Running -> {
@@ -168,8 +169,10 @@ fun ModelSettings() {
     // A translating model (Canary) cannot detect what is spoken, so "auto" is not offered for it, and
     // both lists show only the languages the model's own file says it supports.
     val offered = languagesFor(active)
-    val spoken = if (active?.canTranslate == true) offered.filter { it.first != "auto" }
-    else if (offered.none { it.first == "auto" }) listOf(LANGUAGES.first()) + offered else offered
+    // every model gets Auto; for Canary it means the language detector, fetched on first choice
+    val spoken = if (offered.none { it.first == "auto" }) listOf(LANGUAGES.first()) + offered else offered
+    val detector = CATALOG.first { it.file == LANG_ID_FILE }
+    val detectorInstalled = store.installed(LANG_ID_FILE) != null
     val written = offered.filter { it.first != "auto" }
 
     fun select(model: ModelEntry) {
@@ -265,7 +268,7 @@ fun ModelSettings() {
         }
 
         header(R.string.model_header)
-        CATALOG.filter { !it.translates }.forEach { catalogRow(it) }
+        CATALOG.filter { !it.translates && !it.hidden }.forEach { catalogRow(it) }
 
         // models added by hand that are not one of the recommended ones
         models.filter { catalogFor(it.fileName) == null }.forEach { model ->
@@ -307,8 +310,9 @@ fun ModelSettings() {
                         when {
                             active.engine == ModelEngine.PARAKEET_CPP -> stringResource(R.string.language_model_decides)
                             active.englishOnly -> stringResource(R.string.language_english_only)
-                            // "auto" means English for a model that cannot detect the language
-                            else -> LANGUAGES.firstOrNull { it.first == (if (active?.canTranslate == true && language == "auto") "en" else language) }?.second ?: language
+                            // Auto on Canary: the detector decides, once it is installed
+                            language == "auto" && active?.canTranslate == true && !detectorInstalled -> stringResource(R.string.language_auto_needs_detector)
+                            else -> languageName(language)
                         }
                     )
                 },
@@ -318,6 +322,7 @@ fun ModelSettings() {
                         DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                             spoken.forEach { (code, label) ->
                                 DropdownMenuItem(text = { Text(label) }, onClick = {
+                                    if (code == "auto" && active?.canTranslate == true && !detectorInstalled) confirm = detector
                                     language = code
                                     prefs.edit().putString(LANGUAGE_KEY, code).apply()
                                     menuOpen = false
@@ -373,7 +378,7 @@ fun ModelSettings() {
 
         // the models that write in a language you choose: Whisper's multilingual ones and Canary
         header(R.string.translation_header)
-        CATALOG.filter { it.translates }.forEach { catalogRow(it) }
+        CATALOG.filter { it.translates && !it.hidden }.forEach { catalogRow(it) }
         if (activeTranslates) languageRows()
 
         ListItem(

@@ -21,6 +21,12 @@ interface SpeechEngine {
     /** Whether the loaded model can translate speech into another language. */
     val canTranslate: Boolean get() = false
 
+    /** Whether the model works out the spoken language by itself ("auto"); Canary cannot. */
+    val canDetectLanguage: Boolean get() = true
+
+    /** The languages the model knows, when it says; empty means any. */
+    val languages: List<String> get() = emptyList()
+
     suspend fun release()
 }
 

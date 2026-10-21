@@ -150,4 +150,5 @@
     <string name="vocabulary_remove">Remove</string>
     <string name="vocabulary_none">Names and terms the models should know</string>
     <string name="vocabulary_count">%1$d terms</string>
+    <string name="language_auto_needs_detector">Auto-detect, once the language detector is downloaded</string>
 </resources>
