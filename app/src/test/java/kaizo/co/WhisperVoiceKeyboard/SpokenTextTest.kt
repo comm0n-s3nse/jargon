@@ -84,6 +84,7 @@ class SpokenTextTest {
         assertEquals("That was great lol", SpokenText.chatCase("That was great LOL"))
         assertEquals("imo it works", SpokenText.chatCase("IMO it works"))
         assertEquals("The LOLA bus", SpokenText.chatCase("The LOLA bus"))
+        assertEquals("Jargon, aka the keyboard", SpokenText.chatCase("Jargon, AKA the keyboard"))
     }
 
     @Test

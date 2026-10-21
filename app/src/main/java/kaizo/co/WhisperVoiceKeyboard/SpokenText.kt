@@ -140,7 +140,7 @@ object SpokenText {
     }
 
     // chat shorthand reads as lowercase; the model writes it in capitals
-    private val slang = Regex("""\b(lol|lmao|rofl|imo|imho|tbh|idk|btw|smh|brb|afaik|ikr)\b""", RegexOption.IGNORE_CASE)
+    private val slang = Regex("""\b(lol|lmao|rofl|imo|imho|tbh|idk|btw|smh|brb|afaik|ikr|aka)\b""", RegexOption.IGNORE_CASE)
 
     /** "LOL" and friends in lowercase, wherever they are. */
     fun chatCase(text: String): String = slang.replace(text) { it.value.lowercase() }

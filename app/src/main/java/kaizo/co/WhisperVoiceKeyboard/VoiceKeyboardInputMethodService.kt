@@ -760,8 +760,11 @@ class VoiceKeyboardInputMethodService : InputMethodService(), LifecycleOwner,
                         trailing = " "
                     }
                 }
-                if (before != null && !skipsCapitalization(inputType)) {
-                    sentenceStart = startsSentence(before)
+                // a capital only for a known reason: the start of the field, a newline, or . ! ?
+                // before the cursor. A field that will not show its text gets lowercase, not the
+                // model's habit of capitalizing everything.
+                if (!skipsCapitalization(inputType)) {
+                    sentenceStart = before?.let { startsSentence(it) } ?: false
                 }
 
             }
