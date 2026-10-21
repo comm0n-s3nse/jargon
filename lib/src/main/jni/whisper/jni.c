@@ -164,7 +164,7 @@ Java_com_whispercpp_whisper_WhisperLib_00024Companion_freeContext(
 JNIEXPORT void JNICALL
 Java_com_whispercpp_whisper_WhisperLib_00024Companion_fullTranscribe(
         JNIEnv *env, jobject thiz, jlong context_ptr, jint num_threads, jfloatArray audio_data,
-        jstring language) {
+        jstring language, jstring prompt) {
     UNUSED(thiz);
     struct whisper_context *context = (struct whisper_context *) context_ptr;
     jfloat *audio_data_arr = (*env)->GetFloatArrayElements(env, audio_data, NULL);
@@ -184,6 +184,9 @@ Java_com_whispercpp_whisper_WhisperLib_00024Companion_fullTranscribe(
     params.offset_ms = 0;
     params.no_context = true;
     params.single_segment = false;
+    // names and terms the person taught the keyboard, as whisper's initial prompt
+    const char *prompt_chars = prompt ? (*env)->GetStringUTFChars(env, prompt, NULL) : NULL;
+    if (prompt_chars && *prompt_chars) params.initial_prompt = prompt_chars;
 
     whisper_reset_timings(context);
 
@@ -195,6 +198,7 @@ Java_com_whispercpp_whisper_WhisperLib_00024Companion_fullTranscribe(
     }
     (*env)->ReleaseFloatArrayElements(env, audio_data, audio_data_arr, JNI_ABORT);
     (*env)->ReleaseStringUTFChars(env, language, lang);
+    if (prompt_chars) (*env)->ReleaseStringUTFChars(env, prompt, prompt_chars);
 }
 
 JNIEXPORT jint JNICALL

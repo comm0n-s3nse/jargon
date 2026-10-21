@@ -10,10 +10,12 @@ interface SpeechEngine {
     /**
      * [samples] are 16 kHz mono floats; [language] is the language spoken, a code such as "pt", or
      * "auto". [translateTo] asks for the speech to come out in that language, for engines whose
-     * model can do it (see [canTranslate]); the others ignore it.
+     * model can do it (see [canTranslate]); the others ignore it. [vocabulary] is the names and
+     * terms the person taught the keyboard, for models that can be told.
      */
     suspend fun transcribe(
         samples: FloatArray, threads: Int, language: String, translateTo: String? = null,
+        vocabulary: List<String> = emptyList(),
     ): String
 
     /** Whether the loaded model can translate speech into another language. */
@@ -24,8 +26,12 @@ interface SpeechEngine {
 
 class WhisperEngine(private val context: WhisperContext) : SpeechEngine {
     override suspend fun transcribe(
-        samples: FloatArray, threads: Int, language: String, translateTo: String?,
-    ) = context.transcribeData(samples, false, threads, language)
+        samples: FloatArray, threads: Int, language: String, translateTo: String?, vocabulary: List<String>,
+    ) = context.transcribeData(samples, false, threads, language, whisperPrompt(vocabulary))
 
     override suspend fun release() = context.release()
 }
+
+/** Whisper takes its terms as a sentence it believes it already heard; a list reads best. */
+fun whisperPrompt(vocabulary: List<String>): String? =
+    vocabulary.filter { it.isNotBlank() }.takeIf { it.isNotEmpty() }?.joinToString(", ", postfix = ".")

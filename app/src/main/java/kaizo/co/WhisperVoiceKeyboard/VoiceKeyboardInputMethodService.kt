@@ -7,6 +7,7 @@ import kaizo.co.WhisperVoiceKeyboard.models.ModelEntry
 import kaizo.co.WhisperVoiceKeyboard.models.LANGUAGE_KEY
 import kaizo.co.WhisperVoiceKeyboard.models.TRANSLATE_KEY
 import kaizo.co.WhisperVoiceKeyboard.ui.main.ENTER_HINT_KEY
+import kaizo.co.WhisperVoiceKeyboard.ui.main.VOCABULARY_KEY
 import kaizo.co.WhisperVoiceKeyboard.models.RECENT_TRANSLATE_MAX
 import kaizo.co.WhisperVoiceKeyboard.models.recentTranslateTargets
 import kaizo.co.WhisperVoiceKeyboard.models.rememberTranslateTarget
@@ -464,6 +465,10 @@ class VoiceKeyboardInputMethodService : InputMethodService(), LifecycleOwner,
         }
     }
 
+    // the names and terms taught in Settings, one per line
+    private fun vocabulary(): List<String> =
+        sharedPref?.getString(VOCABULARY_KEY, null)?.lines()?.map { it.trim() }?.filter { it.isNotEmpty() }.orEmpty()
+
     private fun language(): String {
         val file = loadedModel?.fileName ?: return "en"
         return languageFor(file, sharedPref?.getString(LANGUAGE_KEY, "en") ?: "en")
@@ -527,7 +532,7 @@ class VoiceKeyboardInputMethodService : InputMethodService(), LifecycleOwner,
 
     /** The engine's text for [data], with its special tokens removed; null without an engine. */
     private suspend fun recognize(data: FloatArray): String? {
-        val raw = engineLock.withLock { engine?.transcribe(data, threads(), language(), translateTo()) }?.trim() ?: return null
+        val raw = engineLock.withLock { engine?.transcribe(data, threads(), language(), translateTo(), vocabulary()) }?.trim() ?: return null
         // remove special tokens like [MUSIC] or [BLANK_AUDIO]
         // bizarrely, it sometimes also does *music* or (music) so handle these case-s too
         // there's another case with flanking ♪ but it seems slightly different

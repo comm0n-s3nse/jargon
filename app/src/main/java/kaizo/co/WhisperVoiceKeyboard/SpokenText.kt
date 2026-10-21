@@ -29,7 +29,12 @@ object SpokenText {
 
     // "space" on its own is the space bar; in a sentence it is a word ("outer space")
     private val spaceOnly = Regex("""^\s*space[.,!?]*\s*$""", RegexOption.IGNORE_CASE)
-    private val phrases = PUNCTUATION.joinToString("|") { "(?:${it.said})" }
+    // the model sometimes writes "cry, laugh" or "hug-face" for a two-word phrase: any gap counts
+    private fun loose(said: String) = said
+        .replace(" ?", "\u0000") // an optional gap ("face ?palm") may also be a comma or hyphen
+        .replace(" ", """[\s,\-]+""")
+        .replace("\u0000", """[\s,\-]*""")
+    private val phrases = PUNCTUATION.joinToString("|") { "(?:${loose(it.said)})" }
 
     // "Question mark." / "Period, do you need anything" at the very start
     private val leading = Regex("""^\s*($phrases)(?![\p{L}\p{N}])[.,!?]*\s*""", RegexOption.IGNORE_CASE)
@@ -50,7 +55,7 @@ object SpokenText {
     private val lineBreak = Regex("""[\s,]*[.,]?\s+new ?line[\s,.]+(?=\S)""", RegexOption.IGNORE_CASE)
 
     private fun mark(word: String): String =
-        PUNCTUATION.first { Regex(it.said, RegexOption.IGNORE_CASE).matches(word) }.mark
+        PUNCTUATION.first { Regex(loose(it.said), RegexOption.IGNORE_CASE).matches(word) }.mark
 
     /**
      * Spoken punctuation at the start or end becomes the character. Only there: "the period of
@@ -119,7 +124,7 @@ object SpokenText {
         SpokenEmoji("sun emoji", "sun emoji", "☀️"),
         SpokenEmoji("see no evil", "see no evil|monkey (?:covering (?:its |his )?)?eyes|shy monkey", "🙈"),
     )
-    private val emojiPhrases = EMOJI.joinToString("|") { "(?:${it.said})" }
+    private val emojiPhrases = EMOJI.joinToString("|") { "(?:${loose(it.said)})" }
 
     // the phrase as whole words, swallowing a period the model may put after it
     private val emoji = Regex("""(?<![\p{L}\p{N}])($emojiPhrases)(?![\p{L}\p{N}])\.?""", RegexOption.IGNORE_CASE)
@@ -133,7 +138,7 @@ object SpokenText {
     fun emoji(text: String): String {
         val out = emoji.replace(text) { m ->
             val said = m.groupValues[1]
-            EMOJI.first { Regex(it.said, RegexOption.IGNORE_CASE).matches(said) }.emoji
+            EMOJI.first { Regex(loose(it.said), RegexOption.IGNORE_CASE).matches(said) }.emoji
         }
         if (out == text) return text
         return commaAfter.replace(commaBefore.replace(out, " "), "").trim()

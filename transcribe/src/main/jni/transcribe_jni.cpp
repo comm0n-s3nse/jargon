@@ -7,6 +7,7 @@
 
 #include <cstring>
 #include <string>
+#include <vector>
 
 #include "transcribe.h"
 
@@ -90,7 +91,7 @@ Java_com_transcribecpp_TranscribeLib_capabilities(JNIEnv *env, jobject, jlong pt
 JNIEXPORT jstring JNICALL
 Java_com_transcribecpp_TranscribeLib_transcribe(JNIEnv *env, jobject, jlong ptr, jint threads,
                                                 jfloatArray audio, jstring language,
-                                                jstring targetLanguage) {
+                                                jstring targetLanguage, jobjectArray vocabulary) {
     auto *h = reinterpret_cast<Handle *>(ptr);
     if (threads > 0 && threads != h->threads && !open_session(h, threads)) return nullptr;
 
@@ -103,6 +104,25 @@ Java_com_transcribecpp_TranscribeLib_transcribe(JNIEnv *env, jobject, jlong ptr,
     if (target && *target) {
         rp.task = TRANSCRIBE_TASK_TRANSLATE;
         rp.target_language = target;
+    }
+    // custom terms, priority order; the library formats them per family and warns where unsupported
+    std::vector<std::string> terms;
+    std::vector<const char *> term_ptrs;
+    if (vocabulary) {
+        const jsize nv = env->GetArrayLength(vocabulary);
+        for (jsize i = 0; i < nv; i++) {
+            auto js = static_cast<jstring>(env->GetObjectArrayElement(vocabulary, i));
+            if (!js) continue;
+            const char *c = env->GetStringUTFChars(js, nullptr);
+            if (c && *c) terms.emplace_back(c);
+            if (c) env->ReleaseStringUTFChars(js, c);
+            env->DeleteLocalRef(js);
+        }
+        for (auto &t : terms) term_ptrs.push_back(t.c_str());
+        if (!term_ptrs.empty()) {
+            rp.vocabulary = term_ptrs.data();
+            rp.n_vocabulary = static_cast<int32_t>(term_ptrs.size());
+        }
     }
 
     jfloat *pcm = env->GetFloatArrayElements(audio, nullptr);

@@ -2,6 +2,7 @@ package kaizo.co.WhisperVoiceKeyboard.ui.main
 
 import kaizo.co.WhisperVoiceKeyboard.models.ModelStore
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Spellcheck
 import androidx.compose.runtime.LaunchedEffect
 import kaizo.co.WhisperVoiceKeyboard.Updates
 import kaizo.co.WhisperVoiceKeyboard.Tutorial
@@ -94,6 +95,12 @@ fun MainScreen(viewModel: MainScreenViewModel) {
         AppearanceScreen(onBack = { showAppearance = false })
         return
     }
+    var showVocabulary by remember { mutableStateOf(false) }
+    if (showVocabulary) {
+        BackHandler { showVocabulary = false }
+        VocabularyScreen(onBack = { showVocabulary = false })
+        return
+    }
     MainScreen(
         canTranscribe = viewModel.canTranscribe,
         isRecording = viewModel.isRecording,
@@ -102,6 +109,7 @@ fun MainScreen(viewModel: MainScreenViewModel) {
         onRecordTapped = viewModel::toggleRecord,
         onAboutTapped = { showAbout = true },
         onAppearanceTapped = { showAppearance = true },
+        onVocabularyTapped = { showVocabulary = true },
     )
 }
 
@@ -115,6 +123,7 @@ private fun MainScreen(
     onRecordTapped: () -> Unit,
     onAboutTapped: () -> Unit,
     onAppearanceTapped: () -> Unit,
+    onVocabularyTapped: () -> Unit,
 ) {
     val sharedPref = LocalContext.current.getSharedPreferences(
         stringResource(R.string.preference_file_key), Context.MODE_PRIVATE
@@ -218,6 +227,7 @@ private fun MainScreen(
                     modifier = Modifier.fillMaxWidth()
                 )
             }
+            item { VocabularyButton(onVocabularyTapped, sharedPref) }
             item { SpokenPunctuationItem(sharedPref) }
             item { SpokenEmojiItem(sharedPref) }
             item { UpdateCheckItem(sharedPref) }
@@ -482,6 +492,20 @@ private fun SpokenEmojiItem(prefs: android.content.SharedPreferences) {
             }
         )
     }
+}
+
+@Composable
+private fun VocabularyButton(onClick: () -> Unit, prefs: android.content.SharedPreferences) {
+    val count = prefs.getString(VOCABULARY_KEY, null)?.lines()?.count { it.isNotBlank() } ?: 0
+    ListItem(
+        headlineContent = { Text(stringResource(R.string.vocabulary_title)) },
+        supportingContent = {
+            Text(if (count == 0) stringResource(R.string.vocabulary_none) else stringResource(R.string.vocabulary_count, count))
+        },
+        leadingContent = { Icon(Icons.Outlined.Spellcheck, null) },
+        trailingContent = { Icon(Icons.AutoMirrored.Outlined.NavigateNext, null) },
+        modifier = Modifier.clickable(onClick = onClick)
+    )
 }
 
 @Composable

@@ -143,4 +143,11 @@
     <string name="tut_box">Your words land here</string>
     <string name="tut_clear">Clear</string>
     <string name="model_recommended">Recommended</string>
+    <string name="vocabulary_title">Vocabulary</string>
+    <string name="vocabulary_description">Names and terms the keyboard should know: people, products, places, your own jargon. Whisper hears them as a hint; Canary does not take hints yet.</string>
+    <string name="vocabulary_hint">A name or a term</string>
+    <string name="vocabulary_add">Add</string>
+    <string name="vocabulary_remove">Remove</string>
+    <string name="vocabulary_none">Names and terms the models should know</string>
+    <string name="vocabulary_count">%1$d terms</string>
 </resources>

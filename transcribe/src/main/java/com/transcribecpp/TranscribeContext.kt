@@ -25,9 +25,10 @@ class TranscribeContext private constructor(
      */
     suspend fun transcribe(
         samples: FloatArray, threads: Int, language: String, targetLanguage: String?,
+        vocabulary: List<String> = emptyList(), // custom terms, for models that take them
     ): String = withContext(scope.coroutineContext) {
         require(ptr != 0L)
-        TranscribeLib.transcribe(ptr, threads, samples, language, targetLanguage)
+        TranscribeLib.transcribe(ptr, threads, samples, language, targetLanguage, vocabulary.toTypedArray())
             ?: throw RuntimeException("transcription failed: ${TranscribeLib.lastError()}")
     }
 
@@ -70,6 +71,7 @@ private object TranscribeLib {
     external fun capabilities(ctx: Long): String
     external fun transcribe(
         ctx: Long, threads: Int, audio: FloatArray, language: String, targetLanguage: String?,
+        vocabulary: Array<String>?,
     ): String?
     external fun free(ctx: Long)
 }

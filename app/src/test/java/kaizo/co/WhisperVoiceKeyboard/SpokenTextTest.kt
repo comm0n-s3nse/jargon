@@ -107,6 +107,11 @@ class SpokenTextTest {
         assertEquals("Well 😬", SpokenText.emoji("Well grimace"))
         assertEquals("Well 😬", SpokenText.emoji("Well grimace face"))
         assertEquals("Bye 🤗", SpokenText.emoji("Bye hug face"))
+        // the model's own comma or hyphen inside the phrase
+        assertEquals("Bye 🤗", SpokenText.emoji("Bye hug, face"))
+        assertEquals("Ha 😂", SpokenText.emoji("Ha, cry, laugh."))
+        assertEquals("Hi 😉", SpokenText.emoji("Hi winky-face"))
+        assertEquals("Really?", SpokenText.punctuation("Really question, mark").text)
     }
 
     @Test
