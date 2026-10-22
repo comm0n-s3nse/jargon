@@ -12,8 +12,8 @@ android {
         applicationId "io.github.comm0n_s3nse.jargon"
         minSdk 28
         targetSdk 34
-        versionCode 2
-        versionName "1.1"
+        versionCode 3
+        versionName "1.1.1"
         // arm64 only: parakeet.cpp and transcribe.cpp build for it alone, and every phone that can
         // run these models is arm64. Shipping whisper for other ABIs would install a half-working app.
         ndk {
