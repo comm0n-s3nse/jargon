@@ -30,10 +30,10 @@ object SpokenText {
     // "space" on its own is the space bar; in a sentence it is a word ("outer space")
     private val spaceOnly = Regex("""^\s*space[.,!?]*\s*$""", RegexOption.IGNORE_CASE)
     // the model sometimes writes "cry, laugh" or "hug-face" for a two-word phrase: any gap counts
+    // ("winkface", "hug-face", "cry, laugh" are all the same phrase to the person who said it)
     private fun loose(said: String) = said
-        .replace(" ?", "\u0000") // an optional gap ("face ?palm") may also be a comma or hyphen
-        .replace(" ", """[\s,\-]+""")
-        .replace("\u0000", """[\s,\-]*""")
+        .replace(" ?", " ")
+        .replace(" ", """[\s,\-]*""")
     private val phrases = PUNCTUATION.joinToString("|") { "(?:${loose(it.said)})" }
 
     // "Question mark." / "Period, do you need anything" at the very start

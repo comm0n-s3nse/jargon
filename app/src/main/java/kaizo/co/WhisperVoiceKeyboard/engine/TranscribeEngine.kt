@@ -13,13 +13,13 @@ class TranscribeEngine(private val context: TranscribeContext) : SpeechEngine {
     override val languages get() = context.capabilities.languages
 
     override suspend fun transcribe(
-        samples: FloatArray, threads: Int, language: String, translateTo: String?, vocabulary: List<String>,
+        samples: FloatArray, threads: Int, language: String, translateTo: String?, vocabulary: List<String>, digits: Boolean,
     ): String {
         val caps = context.capabilities
         val spoken = if (language == "auto" && !caps.canDetectLanguage) "en" else language
         // translating into the language already spoken is just transcription
         val target = translateTo?.takeIf { caps.canTranslate && it.isNotEmpty() && it != spoken }
-        return context.transcribe(samples, threads, spoken, target, vocabulary)
+        return context.transcribe(samples, threads, spoken, target, vocabulary, digits)
     }
 
     override suspend fun release() = context.release()

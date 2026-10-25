@@ -26,9 +26,10 @@ class TranscribeContext private constructor(
     suspend fun transcribe(
         samples: FloatArray, threads: Int, language: String, targetLanguage: String?,
         vocabulary: List<String> = emptyList(), // custom terms, for models that take them
+        digits: Boolean = true, // numbers as figures (ITN), for families with the switch; others ignore it
     ): String = withContext(scope.coroutineContext) {
         require(ptr != 0L)
-        TranscribeLib.transcribe(ptr, threads, samples, language, targetLanguage, vocabulary.toTypedArray())
+        TranscribeLib.transcribe(ptr, threads, samples, language, targetLanguage, vocabulary.toTypedArray(), digits)
             ?: throw RuntimeException("transcription failed: ${TranscribeLib.lastError()}")
     }
 
@@ -71,7 +72,7 @@ private object TranscribeLib {
     external fun capabilities(ctx: Long): String
     external fun transcribe(
         ctx: Long, threads: Int, audio: FloatArray, language: String, targetLanguage: String?,
-        vocabulary: Array<String>?,
+        vocabulary: Array<String>?, digits: Boolean,
     ): String?
     external fun free(ctx: Long)
 }

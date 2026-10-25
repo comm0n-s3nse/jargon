@@ -16,6 +16,7 @@ interface SpeechEngine {
     suspend fun transcribe(
         samples: FloatArray, threads: Int, language: String, translateTo: String? = null,
         vocabulary: List<String> = emptyList(),
+        digits: Boolean = true, // numbers as figures, for models with their own switch (ITN)
     ): String
 
     /** Whether the loaded model can translate speech into another language. */
@@ -32,7 +33,7 @@ interface SpeechEngine {
 
 class WhisperEngine(private val context: WhisperContext) : SpeechEngine {
     override suspend fun transcribe(
-        samples: FloatArray, threads: Int, language: String, translateTo: String?, vocabulary: List<String>,
+        samples: FloatArray, threads: Int, language: String, translateTo: String?, vocabulary: List<String>, digits: Boolean,
     ) = context.transcribeData(samples, false, threads, language, whisperPrompt(vocabulary))
 
     override suspend fun release() = context.release()

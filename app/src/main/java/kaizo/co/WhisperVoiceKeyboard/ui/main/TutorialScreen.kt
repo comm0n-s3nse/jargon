@@ -118,7 +118,9 @@ fun TutorialScreen(onDone: () -> Unit, onLeave: () -> Unit) {
             }
         }
         Spacer(Modifier.weight(1f))
-        OutlinedTextField(
+        // the box only when the step types into it; on the others it was taken for the task
+        val typing = step == Step.TAP || step == Step.HOLD || step == Step.TAP_CANCEL || step == Step.UNDO
+        if (typing) OutlinedTextField(
             value = typed,
             onValueChange = { typed = it },
             placeholder = { Text(stringResource(R.string.tut_box), color = Color(0xFF777777)) },
@@ -129,7 +131,7 @@ fun TutorialScreen(onDone: () -> Unit, onLeave: () -> Unit) {
         )
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
-            if (typed.isNotEmpty()) TextButton(onClick = { typed = "" }) { Text(stringResource(R.string.tut_clear)) }
+            if (typing && typed.isNotEmpty()) TextButton(onClick = { typed = "" }) { Text(stringResource(R.string.tut_clear)) }
         }
     }
 }

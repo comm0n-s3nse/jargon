@@ -66,7 +66,19 @@ private const val LOG_TAG = "VoiceKeyboardInputMethodService"
 
 // how much text either side of the cursor identifies an edit, and how many edits are kept
 private const val CONTEXT_CHARS = 12
-private const val MAX_EDITS = 3
+private const val MAX_EDITS = 8
+
+// "Offline agent coming soon!" in the languages the models speak; the fallback is English
+private val COMING_SOON = mapOf(
+    "en" to "Offline agent coming soon!", "pt" to "Agente offline em breve!", "es" to "¡Agente sin conexión, muy pronto!",
+    "fr" to "Agent hors ligne, bientôt !", "de" to "Offline-Agent kommt bald!", "it" to "Agente offline in arrivo!",
+    "nl" to "Offline agent komt eraan!", "pl" to "Agent offline już wkrótce!", "sl" to "Agent brez povezave kmalu!",
+    "sv" to "Offline-agent kommer snart!", "ru" to "Офлайн-агент скоро!", "uk" to "Офлайн-агент незабаром!",
+    "cs" to "Offline agent již brzy!", "da" to "Offline-agent kommer snart!", "fi" to "Offline-agentti tulossa pian!",
+    "hu" to "Offline ügynök hamarosan!", "ro" to "Agent offline în curând!", "el" to "Σύντομα πράκτορας εκτός σύνδεσης!",
+    "tr" to "Çevrimdışı ajan yakında!", "ja" to "オフラインエージェント、近日公開！", "ko" to "오프라인 에이전트 곧 출시!",
+    "zh" to "离线助手即将推出！", "ar" to "الوكيل دون اتصال قريبًا!", "hi" to "ऑफ़लाइन एजेंट जल्द ही!",
+)
 
 class VoiceKeyboardInputMethodService : InputMethodService(), LifecycleOwner,
     SavedStateRegistryOwner {
@@ -220,11 +232,15 @@ class VoiceKeyboardInputMethodService : InputMethodService(), LifecycleOwner,
     // stood right after it, and only applies while that still holds.
     private class Edit(
         val inserted: String, var deleted: String, var before: String, var after: String
-    )
+    ) {
+        val isDictation get() = inserted.isNotEmpty()
+    }
 
     private val editLock = Any()
     private val edits = ArrayList<Edit>()
     private var runEdit: Edit? = null
+    // the dictation the last drag-left took out, for drag-right to put back
+    private var redo: Edit? = null
 
     private fun contextNow(): Pair<String, String> {
         val ic = currentInputConnection
@@ -291,15 +307,61 @@ class VoiceKeyboardInputMethodService : InputMethodService(), LifecycleOwner,
         true
     }
 
+    // Takes out the last dictation, whatever backspacing happened since: whatever of its text is
+    // still in front of the cursor goes, and what it had replaced comes back. Backspace edits in
+    // between are dropped; they are not what a drag on the backspace key means.
+    private fun undoDictation(): Boolean = synchronized(editLock) {
+        val ic = currentInputConnection ?: return false
+        val idx = edits.indexOfLast { it.isDictation }
+        if (idx < 0) return false
+        val edit = edits[idx]
+        val before = ic.getTextBeforeCursor(edit.inserted.length + CONTEXT_CHARS, 0)?.toString().orEmpty()
+        // the longest start of the dictation that still ends at the cursor
+        var keep = minOf(edit.inserted.length, before.length)
+        while (keep > 0 && !before.endsWith(edit.inserted.substring(0, keep))) keep--
+        val remaining = edit.inserted.substring(0, keep)
+        if (remaining.isBlank()) {
+            edits.clear()
+            return false
+        }
+        ic.deleteSurroundingTextInCodePoints(remaining.codePointCount(0, remaining.length), 0)
+        if (edit.deleted.isNotEmpty()) ic.commitText(edit.deleted, 1)
+        while (edits.size > idx) edits.removeAt(edits.lastIndex)
+        redo = Edit(remaining, edit.deleted, "", "")
+        true
+    }
+
     // Drag-left on backspace. The touch itself deleted a character, so a plain drag takes that
-    // back and then undoes the edit before it. If the touch had turned into a hold (repeated),
+    // back and then undoes the last dictation. If the touch had turned into a hold (repeated),
     // the drag undoes just that held run.
     fun undoAfterBackspaceGesture(repeated: Boolean) {
         synchronized(editLock) {
             val own = runEdit
             if (own != null && edits.lastOrNull() === own) undoOne()
-            if (!repeated) undoOne()
+            if (!repeated) undoDictation()
             runEdit = null
+        }
+    }
+
+    // Drag-right on backspace: the dictation the last drag-left took out comes back, in place of
+    // what it had replaced. The touch's own deleted character is restored first.
+    fun redoAfterBackspaceGesture() {
+        synchronized(editLock) {
+            val own = runEdit
+            if (own != null && edits.lastOrNull() === own) undoOne()
+            runEdit = null
+            val ic = currentInputConnection ?: return
+            val r = redo ?: return
+            redo = null
+            if (r.deleted.isNotEmpty()) {
+                val before = ic.getTextBeforeCursor(r.deleted.length, 0)?.toString().orEmpty()
+                if (before != r.deleted) return
+                ic.deleteSurroundingTextInCodePoints(r.deleted.codePointCount(0, r.deleted.length), 0)
+            }
+            ic.commitText(r.inserted, 1)
+            val (before, after) = contextNow()
+            edits.add(Edit(r.inserted, r.deleted, before, after))
+            if (edits.size > MAX_EDITS) edits.removeAt(0)
         }
     }
 
@@ -511,6 +573,15 @@ class VoiceKeyboardInputMethodService : InputMethodService(), LifecycleOwner,
         return (guess ?: "en").also { detected = it }
     }
 
+    // Double-tap on the mic: the offline agent is not here yet; the strip says so, in the language
+    // the person speaks (the "I speak" setting, English when it is Auto).
+    var popup by mutableStateOf<String?>(null)
+    fun showAgentPopup() {
+        val code = language().takeIf { it != "auto" } ?: "en"
+        popup = COMING_SOON[code] ?: COMING_SOON["en"]!!
+        scope.launch { delay(2600); popup = null }
+    }
+
     // the names and terms taught in Settings, one per line
     private fun vocabulary(): List<String> =
         sharedPref?.getString(VOCABULARY_KEY, null)?.lines()?.map { it.trim() }?.filter { it.isNotEmpty() }.orEmpty()
@@ -578,7 +649,8 @@ class VoiceKeyboardInputMethodService : InputMethodService(), LifecycleOwner,
 
     /** The engine's text for [data], with its special tokens removed; null without an engine. */
     private suspend fun recognize(data: FloatArray): String? {
-        val raw = engineLock.withLock { engine?.transcribe(data, threads(), spokenLanguage(data), translateTo(), vocabulary()) }?.trim() ?: return null
+        val digits = sharedPref?.getBoolean(getString(R.string.digits), true) != false
+        val raw = engineLock.withLock { engine?.transcribe(data, threads(), spokenLanguage(data), translateTo(), vocabulary(), digits) }?.trim() ?: return null
         // remove special tokens like [MUSIC] or [BLANK_AUDIO]
         // bizarrely, it sometimes also does *music* or (music) so handle these case-s too
         // there's another case with flanking ♪ but it seems slightly different
@@ -693,6 +765,7 @@ class VoiceKeyboardInputMethodService : InputMethodService(), LifecycleOwner,
                     }
                 }
                 text = SpokenText.chatCase(text)
+                if (sharedPref?.getBoolean(getString(R.string.digits), true) != false) text = Numbers.digits(text)
             }
             // add text only if non-empty
             // avoids adding just a single space for empty messages
@@ -816,7 +889,12 @@ class VoiceKeyboardInputMethodService : InputMethodService(), LifecycleOwner,
                 // before the cursor. A field that will not show its text gets lowercase, not the
                 // model's habit of capitalizing everything.
                 if (!skipsCapitalization(inputType)) {
-                    sentenceStart = before?.let { startsSentence(it) } ?: false
+                    val first = selected?.firstOrNull { !it.isWhitespace() }
+                    sentenceStart = when {
+                        // replacing a highlight: the new words take the case the old ones had
+                        first != null && first.isLetter() -> first.isUpperCase()
+                        else -> before?.let { startsSentence(it) } ?: false
+                    }
                 }
 
             }

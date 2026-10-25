@@ -111,6 +111,8 @@ class SpokenTextTest {
         assertEquals("Bye 🤗", SpokenText.emoji("Bye hug, face"))
         assertEquals("Ha 😂", SpokenText.emoji("Ha, cry, laugh."))
         assertEquals("Hi 😉", SpokenText.emoji("Hi winky-face"))
+        assertEquals("Hi 😉", SpokenText.emoji("Hi winkface"))
+        assertEquals("Ok 👍", SpokenText.emoji("Ok thumbsup"))
         assertEquals("Really?", SpokenText.punctuation("Really question, mark").text)
     }
 

@@ -13,12 +13,15 @@ import androidx.compose.ui.graphics.lerp
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material.icons.automirrored.outlined.Undo
+import androidx.compose.material.icons.automirrored.outlined.Redo
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.Canvas
 import kotlin.math.abs
 import androidx.compose.material.icons.outlined.Keyboard
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import android.annotation.SuppressLint
 import android.os.SystemClock
@@ -85,6 +88,7 @@ import kotlin.math.max
 
 // a press shorter than this is a tap, longer is a hold (word-delete, press-to-talk)
 private const val HOLD_GATE_MS = 240L
+private const val DOUBLE_TAP_MS = 320L // a second tap within this opens the agent popup instead
 // the "live" key: how fast it fills when a hold arms or a tap-recording starts, and empties after
 private const val FILL_IN_MS = 120
 private const val FILL_OUT_MS = 160
@@ -158,6 +162,7 @@ class VoiceKeyboardView(private val service: VoiceKeyboardInputMethodService) :
                     quickCurrent = service::quickLanguageCurrent,
                     onQuickPick = service::pickQuickLanguage,
                     level = { service.micLevel },
+                    onDoubleTap = service::showAgentPopup,
                     modifier = Modifier
                         .weight(1f, true)
                         .padding(padding)
@@ -183,6 +188,7 @@ class VoiceKeyboardView(private val service: VoiceKeyboardInputMethodService) :
                     onDelete = service::backspace,
                     onDeleteWord = service::deleteWord,
                     onUndo = service::undoAfterBackspaceGesture,
+                    onRedo = service::redoAfterBackspaceGesture,
                     buttonHeight = buttonHeight,
                     keyWidth = keyWidth,
                     modifier = Modifier.padding(padding),
@@ -200,6 +206,22 @@ class VoiceKeyboardView(private val service: VoiceKeyboardInputMethodService) :
                     shape = shape,
                     contentPadding = PaddingValues(horizontal = contentPad),
                 )
+            }
+            // a line over the strip for a moment: the offline agent is not here yet
+            service.popup?.let { text ->
+                Box(
+                    contentAlignment = Alignment.Center,
+                    // the root is sized by the strip, so filling it covers the keys exactly
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding)
+                        .padding(bottom = mmToDp(DEAD_SPACE_MM))
+                        .clip(shape)
+                        .background(MaterialTheme.colorScheme.tertiaryContainer)
+                        .padding(horizontal = 16.dp)
+                ) {
+                    Text(text, fontSize = 16.sp, color = MaterialTheme.colorScheme.onTertiaryContainer)
+                }
             }
         }
     }
@@ -221,7 +243,7 @@ private fun CancelButton(
 @Composable
 private fun DeleteButton(
     onPress: () -> Unit, onDelete: () -> Unit, onDeleteWord: () -> Unit,
-    onUndo: (repeated: Boolean) -> Unit, buttonHeight: Dp, keyWidth: Dp,
+    onUndo: (repeated: Boolean) -> Unit, onRedo: () -> Unit, buttonHeight: Dp, keyWidth: Dp,
     modifier: Modifier, shape: Shape, contentPadding: PaddingValues
 ) {
     val interactionSource = remember { MutableInteractionSource() }
@@ -256,10 +278,13 @@ private fun DeleteButton(
             }
         }
     }
-    val progress = (-dragX / undoDistancePx).coerceIn(0f, 1f)
+    val progress = (abs(dragX) / undoDistancePx).coerceIn(0f, 1f)
+    val right = dragX > 0f // drag right: redo
     // the key tints toward red as it goes, and is solid red once the undo is armed
-    val container = if (armed) UndoRed else lerp(scheme.primary, UndoRed, progress * 0.8f)
-    val content = if (armed) Color.White else lerp(scheme.onPrimary, Color.White, progress * 0.8f)
+    val armedColor = if (right) scheme.tertiary else UndoRed
+    val armedInk = if (right) scheme.onTertiary else Color.White
+    val container = if (armed) armedColor else lerp(scheme.primary, armedColor, progress * 0.8f)
+    val content = if (armed) armedInk else lerp(scheme.onPrimary, armedInk, progress * 0.8f)
     Box(modifier = modifier) {
         Button(
             onClick = {},
@@ -273,6 +298,8 @@ private fun DeleteButton(
                             if (dragX <= -undoDistancePx) {
                                 onUndo(deletes > 1)
                                 Tutorial.saw(Tutorial.Event.UNDO)
+                            } else if (dragX >= undoDistancePx) {
+                                onRedo()
                             }
                             dragX = 0f
                             armed = false
@@ -283,8 +310,8 @@ private fun DeleteButton(
                         },
                     ) { change, amount ->
                         change.consume()
-                        dragX = (dragX + amount).coerceIn(-maxDragPx, 0f)
-                        val nowArmed = dragX <= -undoDistancePx
+                        dragX = (dragX + amount).coerceIn(-maxDragPx, maxDragPx)
+                        val nowArmed = abs(dragX) >= undoDistancePx
                         if (nowArmed && !armed) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         armed = nowArmed
                     }
@@ -298,14 +325,16 @@ private fun DeleteButton(
                 Icon(
                     Icons.AutoMirrored.Outlined.Backspace, stringResource(R.string.delete_button),
                     modifier = Modifier.graphicsLayer {
-                        translationX = -progress * rollPx
+                        translationX = (if (right) progress else -progress) * rollPx
                         alpha = 1f - progress
                     }
                 )
+                // the undo arrow rolls in from the right on a left drag, the redo arrow from the left on a right one
                 Icon(
-                    Icons.AutoMirrored.Outlined.Undo, stringResource(R.string.undo_button),
+                    if (right) Icons.AutoMirrored.Outlined.Redo else Icons.AutoMirrored.Outlined.Undo,
+                    stringResource(if (right) R.string.redo_button else R.string.undo_button),
                     modifier = Modifier.graphicsLayer {
-                        translationX = (1f - progress) * rollPx
+                        translationX = (if (right) -(1f - progress) else (1f - progress)) * rollPx
                         alpha = progress
                     }
                 )
@@ -463,8 +492,9 @@ private fun RecordButton(
     enabled: Boolean, isRecording: Boolean, status: String?, onClick: () -> Unit,
     onCancel: () -> Unit, onStopping: () -> Unit, onHoldChange: (Boolean) -> Unit,
     quickLanguages: () -> List<Pair<String, String>>, quickCurrent: () -> String,
-    onQuickPick: (String) -> Unit, level: () -> Float, modifier: Modifier, shape: Shape
+    onQuickPick: (String) -> Unit, level: () -> Float, onDoubleTap: () -> Unit, modifier: Modifier, shape: Shape
 ) {
+    var lastTapAt by remember { mutableStateOf(0L) }
     // handle showing Record on the first render and not Transcribing...
     var firstRender by remember { mutableStateOf(true) }
     // handle stopwatch timer
@@ -551,6 +581,18 @@ private fun RecordButton(
                     if (!enabledNow) return@awaitEachGesture
                     val startedOnPress = !recordingNow
                     val pressedAt = SystemClock.uptimeMillis()
+                    // a second tap right after a tap: not a recording, the agent popup (stops the tap's recording)
+                    if (recordingNow && pressedAt - lastTapAt < DOUBLE_TAP_MS) {
+                        lastTapAt = 0L
+                        onCancel()
+                        onDoubleTap()
+                        while (true) {
+                            val event = awaitPointerEvent(PointerEventPass.Initial)
+                            val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                            if (!change.pressed) break
+                        }
+                        return@awaitEachGesture
+                    }
                     if (startedOnPress) {
                         onClick()
                         onHoldChange(true)
@@ -639,7 +681,10 @@ private fun RecordButton(
                             onStopping()
                             onClick()
                         }
-                        else -> Tutorial.saw(Tutorial.Event.TAP_START) // a tap: the recording carries on
+                        else -> {
+                            lastTapAt = SystemClock.uptimeMillis()
+                            Tutorial.saw(Tutorial.Event.TAP_START) // a tap: the recording carries on
+                        }
                     }
                     touch = null
                     holdMode = false

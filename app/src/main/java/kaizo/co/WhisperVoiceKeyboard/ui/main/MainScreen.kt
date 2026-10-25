@@ -2,6 +2,7 @@ package kaizo.co.WhisperVoiceKeyboard.ui.main
 
 import kaizo.co.WhisperVoiceKeyboard.models.ModelStore
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Pin
 import androidx.compose.material.icons.outlined.Spellcheck
 import androidx.compose.runtime.LaunchedEffect
 import kaizo.co.WhisperVoiceKeyboard.Updates
@@ -230,7 +231,8 @@ private fun MainScreen(
             item { VocabularyButton(onVocabularyTapped, sharedPref) }
             item { SpokenPunctuationItem(sharedPref) }
             item { SpokenEmojiItem(sharedPref) }
-            item { UpdateCheckItem(sharedPref) }
+            item { DigitsItem(sharedPref) }
+            if (!installedFromFdroid(appContext)) item { UpdateCheckItem(sharedPref) }
             item { AppearanceButton(onAppearanceTapped) }
             item { SectionHeader(stringResource(R.string.advanced_header), bp = 4.dp) }
             item {
@@ -520,6 +522,32 @@ private fun TutorialButton(enabled: Boolean) {
         modifier = Modifier.clickable(enabled = enabled) { Tutorial.start() }
     )
 }
+
+@Composable
+private fun DigitsItem(prefs: android.content.SharedPreferences) {
+    val key = stringResource(R.string.digits)
+    var on by remember { mutableStateOf(prefs.getBoolean(key, true)) }
+    ListItem(
+        headlineContent = { Text(stringResource(R.string.digits_option)) },
+        supportingContent = { Text(stringResource(R.string.digits_description)) },
+        leadingContent = { Icon(Icons.Outlined.Pin, null) },
+        trailingContent = {
+            Switch(checked = on, onCheckedChange = {
+                on = it
+                prefs.edit().putBoolean(key, it).apply()
+            })
+        },
+        modifier = Modifier.fillMaxWidth()
+    )
+}
+
+// An F-Droid copy is signed by F-Droid: a GitHub APK would not install over it, so no update row there.
+private fun installedFromFdroid(context: android.content.Context): Boolean = try {
+    val pm = context.packageManager
+    val installer = if (android.os.Build.VERSION.SDK_INT >= 30) pm.getInstallSourceInfo(context.packageName).installingPackageName
+    else @Suppress("DEPRECATION") pm.getInstallerPackageName(context.packageName)
+    installer == "org.fdroid.fdroid" || installer == "org.fdroid.basic"
+} catch (e: Exception) { false }
 
 @Composable
 private fun UpdateCheckItem(prefs: android.content.SharedPreferences) {

@@ -92,7 +92,8 @@ Java_com_transcribecpp_TranscribeLib_capabilities(JNIEnv *env, jobject, jlong pt
 JNIEXPORT jstring JNICALL
 Java_com_transcribecpp_TranscribeLib_transcribe(JNIEnv *env, jobject, jlong ptr, jint threads,
                                                 jfloatArray audio, jstring language,
-                                                jstring targetLanguage, jobjectArray vocabulary) {
+                                                jstring targetLanguage, jobjectArray vocabulary,
+                                                jboolean digits) {
     auto *h = reinterpret_cast<Handle *>(ptr);
     if (threads > 0 && threads != h->threads && !open_session(h, threads)) return nullptr;
 
@@ -105,6 +106,10 @@ Java_com_transcribecpp_TranscribeLib_transcribe(JNIEnv *env, jobject, jlong ptr,
     if (target && *target) {
         rp.task = TRANSCRIBE_TASK_TRANSLATE;
         rp.target_language = target;
+    }
+    // numbers as figures where the family has the switch (Canary does); set only then, to avoid the warning
+    if (transcribe_model_supports(h->model, TRANSCRIBE_FEATURE_ITN)) {
+        rp.itn = digits ? TRANSCRIBE_ITN_MODE_ON : TRANSCRIBE_ITN_MODE_OFF;
     }
     // custom terms, priority order; the library formats them per family and warns where unsupported
     std::vector<std::string> terms;
