@@ -808,7 +808,12 @@ class VoiceKeyboardInputMethodService : InputMethodService(), LifecycleOwner,
         return out.toString()
     }
 
+    // start, stop and cancel run one after another, so a cancel that lands while a start is still
+    // under way waits for it instead of racing it
+    private val recordLock = Mutex()
+
     fun cancelRecord() = scope.launch {
+        recordLock.withLock {
         try {
             if (isRecording) {
                 if (checkBoolPref(R.string.pause_media) == true) {
@@ -823,6 +828,7 @@ class VoiceKeyboardInputMethodService : InputMethodService(), LifecycleOwner,
             printMessage("${e.localizedMessage}\n")
             isRecording = false
         }
+        }
     }
 
     private val onError = { e: Exception ->
@@ -835,6 +841,7 @@ class VoiceKeyboardInputMethodService : InputMethodService(), LifecycleOwner,
     }
 
     fun toggleRecord() = scope.launch {
+        recordLock.withLock {
         try {
             if (isRecording) {
                 if (checkBoolPref(R.string.pause_media) == true) {
@@ -902,6 +909,7 @@ class VoiceKeyboardInputMethodService : InputMethodService(), LifecycleOwner,
             Log.w(LOG_TAG, e)
             printMessage("${e.localizedMessage}\n")
             isRecording = false
+        }
         }
     }
 

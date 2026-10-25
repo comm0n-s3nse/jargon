@@ -581,8 +581,9 @@ private fun RecordButton(
                     if (!enabledNow) return@awaitEachGesture
                     val startedOnPress = !recordingNow
                     val pressedAt = SystemClock.uptimeMillis()
-                    // a second tap right after a tap: not a recording, the agent popup (stops the tap's recording)
-                    if (recordingNow && pressedAt - lastTapAt < DOUBLE_TAP_MS) {
+                    // a second tap right after a tap: not a recording, the agent popup (stops the tap's recording,
+                    // which may still be starting; the service runs start and cancel in order)
+                    if (lastTapAt != 0L && pressedAt - lastTapAt < DOUBLE_TAP_MS) {
                         lastTapAt = 0L
                         onCancel()
                         onDoubleTap()
