@@ -21,7 +21,6 @@ import androidx.compose.material.icons.outlined.Keyboard
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import android.annotation.SuppressLint
 import android.os.SystemClock
@@ -78,6 +77,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.sp
 import kaizo.co.WhisperVoiceKeyboard.ui.theme.KaiboardTheme
 import kotlinx.coroutines.delay
@@ -146,7 +147,13 @@ class VoiceKeyboardView(private val service: VoiceKeyboardInputMethodService) :
             // stopped; without it the cancel (X) button shows for a frame between release and the stop
             var stopping by remember { mutableStateOf(false) }
             LaunchedEffect(service.isRecording) { if (!service.isRecording) stopping = false }
-            Row(modifier = Modifier.padding(bottom = mmToDp(DEAD_SPACE_MM))) {
+            // the strip's size, so the popup can cover exactly it (an IME root must never fillMaxSize:
+            // the keyboard would grow to the screen and the field would lose focus)
+            var stripSize by remember { mutableStateOf(IntSize.Zero) }
+            val density = LocalDensity.current
+            Row(modifier = Modifier
+                .padding(bottom = mmToDp(DEAD_SPACE_MM))
+                .onSizeChanged { stripSize = it }) {
                 RecordButton(
                     enabled = service.canTranscribe,
                     isRecording = service.isRecording,
@@ -211,11 +218,9 @@ class VoiceKeyboardView(private val service: VoiceKeyboardInputMethodService) :
             service.popup?.let { text ->
                 Box(
                     contentAlignment = Alignment.Center,
-                    // the root is sized by the strip, so filling it covers the keys exactly
                     modifier = Modifier
-                        .fillMaxSize()
+                        .size(with(density) { stripSize.width.toDp() }, with(density) { stripSize.height.toDp() })
                         .padding(padding)
-                        .padding(bottom = mmToDp(DEAD_SPACE_MM))
                         .clip(shape)
                         .background(MaterialTheme.colorScheme.tertiaryContainer)
                         .padding(horizontal = 16.dp)
