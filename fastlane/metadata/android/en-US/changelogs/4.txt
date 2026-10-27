@@ -1,0 +1,8 @@
+• Vocabulary: names and terms the models should know (Settings › Behavior)
+• "I speak: Auto" for Canary through a small language detector, downloaded on first choice
+• Spoken emoji and punctuation in Portuguese and Slovenian too, active only in that language; "wing face" works as a wink
+• Undo takes out the last dictation even after backspaces; drag backspace right to redo
+• Numbers as digits: "forty ninety" becomes 4090 (Behavior switch)
+• Emoji always stand apart from the word before; a single replaced word keeps its case
+• Tutorial shows the text box only on steps that type; double-tap the mic for a note about what is coming
+• Fixes: capitals only for a known reason, spoken phrases survive the model's own comma

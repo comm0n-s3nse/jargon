@@ -109,6 +109,21 @@ it can sit next to the Play or F-Droid app.
   included), not just the short list. Moonshine Tiny was
   tried and dropped: once dictation is transcribed in pieces its speed no longer bought anything, and
   its text was the roughest of the three; transcribe.cpp still runs it through "Add a model file".
+- **Vocabulary** (1.2): names and terms the models should know, one per line in Behavior; passed to
+  Whisper as its prompt and to the transcribe.cpp models that take a word list (Canary does not).
+- **"I speak: Auto" for Canary** (1.2): a 27 MB language detector (VoxLingua107 ECAPA, through
+  transcribe.cpp) is offered when Auto is chosen for a translating model and decides once per
+  recording, among the languages the model knows. Only a sure read of at least 1.5 s of speech
+  locks the recording; a doubtful one is English for that piece and the next piece gets another look.
+- **Spoken phrases per language** (1.2): Portuguese and Slovenian have their own emoji and
+  punctuation phrases, active only while that language is the one spoken, so one language's sounds
+  never trigger another's emoji; the English phrases work everywhere. Drafted from dictionaries,
+  corrections welcome. Emoji always stand apart from the word before them.
+- **Undo and redo** (1.2): the stack holds eight edits; a drag left takes out the last dictation
+  even after backspaces (what you typed over it is put back), a drag right redoes it.
+- **Numbers as digits** (1.2): "forty ninety" → 4090, "nineteen eighty four" → 1984, "three point
+  one four" → 3.14; a number word on its own below ten stays a word. A Behavior switch.
+- **Double-tap on the mic** (1.2) says, in the language you speak, that the offline agent is coming.
 - **About and licenses screen** (Settings): credits for Kaiboard, whisper.cpp, Whisper, parakeet.cpp,
   ggml and the Android libraries, each with its license text, as BSD-3 and MIT require.
 
