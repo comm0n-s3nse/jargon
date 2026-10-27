@@ -155,4 +155,5 @@
     <string name="digits">digits</string>
     <string name="digits_option">Numbers as digits</string>
     <string name="digits_description">"forty ninety" becomes 4090, "twenty one" 21. A number word on its own below ten stays a word.</string>
+    <string name="spoken_local_note">Your language\'s phrases first, then the English ones, which work in any language.</string>
 </resources>

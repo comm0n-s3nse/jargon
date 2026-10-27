@@ -83,6 +83,18 @@ fun ModelSettings() {
     var language by remember { mutableStateOf(prefs.getString(LANGUAGE_KEY, "en") ?: "en") }
     var menuOpen by remember { mutableStateOf(false) }
     var translateTo by remember { mutableStateOf(prefs.getString(TRANSLATE_KEY, "") ?: "") }
+    // the keyboard's quick menu changes these while this screen is in the background
+    val owner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+    androidx.compose.runtime.DisposableEffect(owner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                language = prefs.getString(LANGUAGE_KEY, "en") ?: "en"
+                translateTo = prefs.getString(TRANSLATE_KEY, "") ?: ""
+            }
+        }
+        owner.lifecycle.addObserver(observer)
+        onDispose { owner.lifecycle.removeObserver(observer) }
+    }
     var translateMenuOpen by remember { mutableStateOf(false) }
     var note by remember { mutableStateOf<String?>(null) }
     var importProgress by remember { mutableStateOf<String?>(null) }

@@ -446,7 +446,8 @@ private fun SpokenPunctuationItem(prefs: android.content.SharedPreferences) {
             title = { Text(stringResource(R.string.spoken_punctuation_list_title)) },
             text = {
                 Column {
-                    SpokenText.PUNCTUATION.forEach { m ->
+                    val lang = prefs.getString(kaizo.co.WhisperVoiceKeyboard.models.LANGUAGE_KEY, "en") ?: "en"
+                    SpokenText.marksFor(lang).forEach { m ->
                         Text("${m.mark}   “${m.label}”", modifier = Modifier.padding(vertical = 2.dp))
                     }
                     Text(stringResource(R.string.spoken_punctuation_list_note), modifier = Modifier.padding(top = 12.dp))
@@ -484,7 +485,9 @@ private fun SpokenEmojiItem(prefs: android.content.SharedPreferences) {
             title = { Text(stringResource(R.string.spoken_emoji_list_title)) },
             text = {
                 Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                    SpokenText.EMOJI.forEach { e ->
+                    val lang = prefs.getString(kaizo.co.WhisperVoiceKeyboard.models.LANGUAGE_KEY, "en") ?: "en"
+                    if (SpokenText.hasLocal(lang)) Text(stringResource(R.string.spoken_local_note), modifier = Modifier.padding(bottom = 6.dp))
+                    SpokenText.emojiFor(lang).forEach { e ->
                         Text("${e.emoji}  “${e.label}”", modifier = Modifier.padding(vertical = 2.dp))
                     }
                 }

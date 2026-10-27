@@ -67,6 +67,9 @@ private const val LOG_TAG = "VoiceKeyboardInputMethodService"
 // how much text either side of the cursor identifies an edit, and how many edits are kept
 private const val CONTEXT_CHARS = 12
 private const val MAX_EDITS = 8
+// Auto: how sure the detector must be, and how much speech it must have heard, to lock a recording
+private const val DETECT_SURE_P = 0.5f
+private const val DETECT_LOCK_SAMPLES = 16000 * 3 / 2 // 1.5 s
 
 // "Offline agent coming soon!" in the languages the models speak; the fallback is English
 private val COMING_SOON = mapOf(
@@ -558,19 +561,26 @@ class VoiceKeyboardInputMethodService : InputMethodService(), LifecycleOwner,
         val speech = engine ?: return setting
         if (setting != "auto" || speech.canDetectLanguage) return setting
         detected?.let { return it }
-        val guess = try {
+        val heard = try {
             val file = ModelStore(application).installed(LANG_ID_FILE)
             if (file == null) null else {
                 val det = langId ?: LangIdContext.load(file.absolutePath).also { langId = it }
                 det.detect(data, speech.languages)?.also {
-                    printMessage("language: ${it.code} (p=${"%.2f".format(it.p)}, in-set ${"%.2f".format(it.allowedMass)})\n")
-                }?.code
+                    printMessage("language: ${it.code} (p=${"%.2f".format(it.p)}, in-set ${"%.2f".format(it.allowedMass)}, ${data.size / 16} ms)\n")
+                }
             }
         } catch (e: Exception) {
             Log.w(LOG_TAG, e)
             null
         }
-        return (guess ?: "en").also { detected = it }
+        // A doubtful read is not acted on: Canary told the wrong source language writes that
+        // language, so English speech came out Spanish once. Only a sure read of enough speech
+        // locks the recording; a short or unsure first piece is English for now and the next
+        // piece gets another look.
+        val sure = heard != null && heard.p >= DETECT_SURE_P
+        val guess = if (sure) heard!!.code else "en"
+        if (sure && data.size >= DETECT_LOCK_SAMPLES) detected = guess
+        return guess
     }
 
     // Double-tap on the mic: the offline agent is not here yet; the strip says so, in the language
@@ -664,7 +674,7 @@ class VoiceKeyboardInputMethodService : InputMethodService(), LifecycleOwner,
         chunkTexts += scope.async {
             val speech = trimSilence(samples) ?: return@async null
             try {
-                recognize(speech)?.trim()?.takeIf { it.isNotEmpty() }.also { printMessage("piece ${samples.size / 16} ms: $it\n") }
+                recognize(speech)?.trim()?.takeIf { it.isNotEmpty() }.also { printMessage("piece ${samples.size / 16} ms [speak=${detected ?: language()} write=${translateTo() ?: "same"}]: $it\n") }
             } catch (e: Exception) { Log.w(LOG_TAG, e); null }
         }
     }
@@ -749,11 +759,13 @@ class VoiceKeyboardInputMethodService : InputMethodService(), LifecycleOwner,
             // "question mark", "smiley face": the words people say for what they cannot type
             var attachLeft = false
             if (text != null && text.isNotEmpty()) {
+                // the phrases of the language spoken (detected, or the setting) join the English ones
+                val spokenLang = (detected ?: language()).takeIf { it != "auto" } ?: "en"
                 if (sharedPref?.getBoolean(getString(R.string.spoken_emoji), true) != false) {
-                    text = SpokenText.emoji(text)
+                    text = SpokenText.emoji(text, spokenLang)
                 }
                 if (sharedPref?.getBoolean(getString(R.string.spoken_punctuation), true) != false) {
-                    val spoken = SpokenText.punctuation(text, capitalize = checkBoolPref(R.string.casual_mode) != true)
+                    val spoken = SpokenText.punctuation(text, capitalize = checkBoolPref(R.string.casual_mode) != true, lang = spokenLang)
                     text = spoken.text
                     attachLeft = spoken.attachLeft && replaced == null
                     if (spoken.bare) {

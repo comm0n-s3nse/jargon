@@ -80,6 +80,20 @@ class SpokenTextTest {
     }
 
     @Test
+    fun otherLanguagesHaveTheirOwnPhrasesAndKeepTheEnglishOnes() {
+        assertEquals("Até amanhã 🙂", SpokenText.emoji("Até amanhã carinha feliz", "pt"))
+        assertEquals("Até amanhã 👍", SpokenText.emoji("Até amanhã joinha", "pt"))
+        assertEquals("Até amanhã 🙂", SpokenText.emoji("Até amanhã smiley face", "pt")) // English travels
+        assertEquals("Se vidimo 😉", SpokenText.emoji("Se vidimo pomezik", "sl")) // diacritics optional
+        assertEquals("Até amanhã carinha feliz", SpokenText.emoji("Até amanhã carinha feliz", "en")) // not in English
+        assertEquals("Onde estás?", SpokenText.punctuation("Onde estás ponto de interrogação", lang = "pt").text)
+        assertEquals("Kje si?", SpokenText.punctuation("Kje si vprasaj", lang = "sl").text)
+        assertEquals("Chegamos ao ponto.", SpokenText.punctuation("Chegamos ao ponto.", lang = "pt").text) // "ponto" only alone
+        assertEquals(".", SpokenText.punctuation("Ponto.", lang = "pt").text)
+        assertEquals("Hi 😉", SpokenText.emoji("Hi wing face")) // what Canary hears
+    }
+
+    @Test
     fun chatShorthandIsLowercase() {
         assertEquals("That was great lol", SpokenText.chatCase("That was great LOL"))
         assertEquals("imo it works", SpokenText.chatCase("IMO it works"))
