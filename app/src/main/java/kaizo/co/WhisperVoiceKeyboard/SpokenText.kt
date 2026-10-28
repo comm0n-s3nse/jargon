@@ -179,6 +179,7 @@ object SpokenText {
         private val phrasesAll = marks.joinToString("|") { "(?:${loose(it.said)})" }
         private val phrasesEdge = edgeMarks.joinToString("|") { "(?:${loose(it.said)})" }
         private fun alt(mark: String) = marks.filter { it.mark == mark }.joinToString("|") { "(?:${loose(it.said)})" }
+        private fun alt(some: List<SpokenMark>) = some.joinToString("|") { "(?:${loose(it.said)})" }
         val spaceOnly = Regex("""^\s*(?:space${LOCAL_SPACE[lang]?.let { "|" + fold(it) } ?: ""})[.,!?]*\s*$""", IC)
         // "Question mark." / "Period, do you need anything" at the very start
         val leading = Regex("""^\s*($phrasesEdge)(?![\p{L}\p{N}])[.,!?]*\s*""", IC)
@@ -190,6 +191,14 @@ object SpokenText {
         val joiner = Regex("""(?<=[\p{L}\p{N}])[\s,]+(?:${alt("-")})[\s,]+(?=[\p{L}\p{N}])""", IC)
         // "wait dot dot dot what" trails off in the middle: "wait... what"
         val trailOff = Regex("""(?<=[\p{L}\p{N}])[\s,]+(?:${alt("...")})[\s,.]+(?=[\p{L}\p{N}])""", IC)
+        // "great news today, exclamation point. We leave at six": a sentence-ender the model closed
+        // with its own punctuation ends the sentence in the middle of a dictation. "period" also
+        // needs the model's comma before it, since "the end of the period. Next" is prose.
+        private val enders = edgeMarks.filter { it.mark == "?" || it.mark == "!" }
+        private val stops = edgeMarks.filter { it.mark == "." }
+        val midSentence = Regex(
+            """(?<=[\p{L}\p{N}])(?:[,;:]\s+(${alt(enders + stops)})|\s+(${alt(enders)}))(?![\p{L}\p{N}])[.,!?]+\s+(?=\S)""", IC
+        )
         // "first line new line second line" breaks the line in the middle
         val lineBreak = Regex("""[\s,]*[.,]?\s+(?:${alt("\n")})[\s,.]+(?=\S)""", IC)
         val matchers = marks.map { Regex(loose(it.said), IC) to it.mark }
@@ -221,6 +230,7 @@ object SpokenText {
             return Result(p, attachLeft = p != "\n", bare = p == "\n")
         }
         var out = r.trailOff.replace(r.joiner.replace(text, "-"), "... ")
+        out = endSentences(out, r, capitalize)
         out = r.lineBreak.replace(out) { "\n" }
         if (capitalize) out = out.split("\n").joinToString("\n") { upperFirst(it) }
         var attachLeft = false
@@ -243,6 +253,22 @@ object SpokenText {
             out = out.substring(0, m.range.first) + r.mark(m.groupValues[1])
         }
         return Result(out, attachLeft)
+    }
+
+    // a sentence-ender spoken in the middle: the mark, a space, and the next word capitalized
+    private fun endSentences(text: String, r: Rules, capitalize: Boolean): String {
+        val out = StringBuilder()
+        var at = 0
+        for (m in r.midSentence.findAll(text)) {
+            val said = m.groupValues[1].ifEmpty { m.groupValues[2] }
+            out.append(text, at, m.range.first).append(r.mark(said)).append(' ')
+            at = m.range.last + 1
+            if (capitalize && at < text.length) {
+                out.append(text[at].uppercaseChar())
+                at++
+            }
+        }
+        return out.append(text, at, text.length).toString()
     }
 
     /** Spoken emoji anywhere in [text] become the emoji, with no comma stuck to them. */

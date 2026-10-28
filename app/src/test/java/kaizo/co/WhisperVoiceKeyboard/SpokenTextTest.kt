@@ -34,6 +34,18 @@ class SpokenTextTest {
     }
 
     @Test
+    fun aSentenceEnderTheModelClosedEndsTheSentenceMidway() {
+        assertEquals("There is great news today!", SpokenText.punctuation("There is great news today, exclamation point.").text)
+        assertEquals("There is great news today! We leave at six.", SpokenText.punctuation("There is great news today, exclamation point. We leave at six.").text)
+        assertEquals("Is it true? I think so.", SpokenText.punctuation("Is it true question mark. I think so.").text)
+        assertEquals("I'm done. Next thing.", SpokenText.punctuation("I'm done, period. Next thing.").text)
+        assertEquals("is it true? i think so.", SpokenText.punctuation("is it true question mark. i think so.", capitalize = false).text)
+        // "period" without the model's comma is prose; a mark the model did not close is left alone
+        assertEquals("The end of the period. Next one.", SpokenText.punctuation("The end of the period. Next one.").text)
+        assertEquals("Put a question mark there.", SpokenText.punctuation("Put a question mark there.").text)
+    }
+
+    @Test
     fun wordsInTheMiddleStayWords() {
         assertEquals("The period of time was long.", SpokenText.punctuation("The period of time was long.").text)
         assertEquals("A comma splice is common.", SpokenText.punctuation("A comma splice is common.").text)
